@@ -1,0 +1,55 @@
+# Next Steps {#sec-nextsteps}
+
+If you read this far, thank you! I put in a lot of work into writing this book, and I'm hopeful that the combination of econometrics, R, bad jokes, and memes was valuable to you.
+
+While this book may have been heavy on memes and building intuition, I am aware that it is fairly light in a number of areas as well. It was, after all, a book designed for a single semester of a college course, so some things definitely needed to be cut.
+
+With respect to R, the focus was on data analysis and coding rather than programming. On the econometric side, the emphasis was on building intuition rather than diving into advanced math, calculus, or proofs. Similarly, contemporary topics like causality and natural experiments were only lightly touched upon.
+
+For the interested reader, this short chapter presents a set of resources that I would suggest should be your next steps if you want to further your knowledge of the material in this book.
+
+## I Want More R!
+
+One of the great things about R is that it is free because it is open source. One of the other great things about R is that people who write books about R often embrace this same spirit and release their books freely with a Creative Commons license. Here is a short list of outstanding resources:
+
+-   [R for Data Science](https://r4ds.had.co.nz/) - Written by Hadley Wickham and Garrett Grolemund, [@wickham2017r4ds] is an outstanding general introduction to R.
+-   [ggplot2: Elegant Graphics for Data Analysis](https://ggplot2-book.org/) - Another book by Hadley Wickham, [@wickham2016ggplot2] is essentially the `ggplot2` bible and goes into great deal on the various customizations available in `ggplot2` for making beautiful visualizations.
+-   [Quarto Guide](https://quarto.org/docs/guide/) – I'm guessing this is the work of Yihui Xie or J.J. Allaire, the legends behind RMarkdown, though credit is given to the Quarto Development Team [@quarto2024guide]. This is a fairly comprehensive guide to Quarto, the system discussed in @sec-litprog Literate Programming and the system used in penning this book!
+
+## I Want More Econometrics!
+
+If you are interested in graduate studies in economics, you will need a more mathematically intensive introduction to econometrics. I'll group these resources into a few categories.
+
+To my knowledge, these are the major players in the world of undergraduate-level textbooks:
+
+-   Introductory Econometrics: A Modern Approach - Jeffery Wooldridge's text [@wooldridge2019] is a classic.
+-   Essentials of Econometrics: Damodar Gujarati's primer [@gujarati2021] is very well regarded.
+-   Introduction to Econometrics - Stock and Watson's textbook [@stock2019introduction] is the last of the major players in the textbook field.
+
+For graduate-level textbooks, we are looking at:
+
+-   Econometric Analysis - I suffered through William Greene [@greene2020econometric], so should you. Jokes aside, this one really is the standard for graduate education.
+-   Microeconometrics - Cameron and Trivedi's classic [@cameron2005microeconometrics] is a classic that provides in-depth coverage of microeconomic applications of econometrics.
+-   Econometrics - Fumio Hayashi's [@hayashi2011econometrics] text is also a mainstay of graduate schools.
+
+Moving on, one of the best books for developing intuition:
+
+-   A Guide to Econometrics - Peter Kennedy's [@kennedy2018guide] text is indispensable for developing higher level intuition about econometrics.
+Finally, a few books on more modern notions of causal inference that are very important reads for individuals interested in graduate studies:
+-   [Causal Inference: The Mixtape](https://mixtape.scunning.com/) - @cunningham2021causal\] is a highly accessible and engaging book for anyone interested in modern causal inference.
+-   [The Effect](https://theeffectbook.net/) - Nick Huntington-Klein's book [@huntington2021effect] is an intuitive guide to understanding causation in data analysis.
+-   Mostly Harmless Econometrics and Mastering Metrics–Joshua Angrist won a Nobel Prize for his work on using econometrics to uncover causation. He teamed up with ‎Jörn-Steffen Pischke to pen these two books, [@angrist2009mostly] and [@angrist2014mastering], on the topic.
+
+## The End
+
+Couldn't end without one final meme.
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| out-width: 50%
+
+knitr::include_graphics("images/safe.jpg")
+```
+
+I hope this book has sparked your interest in econometrics and R. Whatever you choose to do with what you learned from this text, remember: good data analysis is both an art and a science. Good luck, and happy coding!

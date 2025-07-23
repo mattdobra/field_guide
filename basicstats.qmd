@@ -1,0 +1,1235 @@
+# Descriptive Statistics with R {#sec-basicstats}
+
+This chapter builds upon the previous chapters, using the tools of R for descriptive statistics. This chapter is written on the assumption that you already have a reasonable understanding of basic descriptive statistics, and as such will not go into detail on the "what" or "why" of descriptive statistics, but rather will focus on the how. The data wrangling skills from @sec-wrangling will come in handy here. Often, creating meaningful visualizations and summaries requires filtering, grouping, or transforming your data first.
+
+In many ways, my focus in this chapter is twofold. First, it serves as a review of the first half of a standard intro to applied statistics course. Second, it helps build your R skills by showing you how to do stuff you probably already know how to do in a program like Excel in R.
+
+This chapter is broken into two parts; the first half focuses on graphs, the building blocks of data visualization. The second half focuses on numerical descriptive measures, the building blocks of statistics, econometrics, and the like.
+
+Finally, before we get going, let me follow my own advice and load the required packages and data in my first code chunk!
+
+```{r}
+#| message: FALSE
+
+# Libraries used in this chapter:
+
+library(tidyverse)
+library(stargazer)
+library(AER)
+library(wooldridge)
+
+# Data used in this chapter
+
+data(CPS1985)
+data(vote1)
+
+```
+
+## Graphs and Visualizations
+
+One of the functionalities R is best known for is for building graphs that are sleek and elegant. In fact, you've probably seen graphs in the wild that were made using R; the New York Times and British Broadcasting Corporation (BBC) typically use R to create graphics for their news stories. The BBC even published a "cookbook" and package [@bbc] so that you too can make your graphs have the same style as theirs!
+
+When compared to making graphs in a program like Excel or Numbers, what you will probably find is that graphs in R require a little more effort, but the payoff is a graph that looks **many** times better than one from a spreadsheet program. Personally, one of the things that first got me hooked on R was seeing just how much more polished and and professional the graphs were, even with just a few lines of code.
+
+There are two major graphing engines used in R: Base R graphics and `ggplot()` graphics. Base R graphics describe the graph engine that is built directly into R, whereas `ggplot()` is part of the `tidyverse`. I will only be touching on Base R graphics, as in my opinion, `ggplot()` makes better looking graphics and is more intuitive when you want to customize your graphs than Base R. But sometimes, you just want a quick and dirty graph, and Base R is just fine for that.
+
+Making graphs in R-at least the really pretty ones using `ggplot()`-is easier once you understand the underlying philosophy of what graphing is all about. Let's dive into the basics of the Grammar of Graphics.
+
+### Grammar of Graphics
+
+The "gg" in `ggplot()` stands for **Grammar of Graphics**, which is the graphing philosophy embedded in the program. The `ggplot()` function is in the `ggplot2` package, which is part of the `tidyverse`. The Grammar of Graphics is based on the idea that a graphic has a set of indispensable elements:
+
+-   **Aesthetic**: The dimensions and visual attributes of the graph. Think of this like the canvas upon which you will be creating your graph. This can be the x/y dimension, but also you can graph using color, size, and so forth. These are graphical elements used to display dimensions of the data, rather than being purely cosmetic. For example, perhaps I am making a scatterplot of individual salaries with years of education on the x-axis and income on the y-axis. If I make all of the dots blue because it looks good, or matches the overall style of my paper, this is not an aesthetic. If I make the dots representing men blue and the dots representing women pink, this is an aesthetic, because I am using color to represent dimensions of the data.
+
+-   **Layers**: If the aesthetics are your canvas, the layers are what you paint on top. Each layer has several components, and while there are lots of technical terms-data, mappings, geometries, etc.-don't let the fancy terminology scare you off. They're mostly intuitive concepts! Continuing with the example from above, the data will be all the individual observations in your data set, the geometry of a scatterplot just means we are using dots, and the mapping is simply to put each dot at the right spot on the x/y space.
+
+-   **Theme**: The overall styling and presentation of your graph - titles, axis labels, background colors, fonts, legend placement, and so forth. This covers both what your labels should say and how everything should look. Going back to our salary example, you want readers to understand what they're looking at: Is the y-axis income per year or per hour? What do the blue and pink dots represent? A good theme ensures your audience can interpret your graph without having to guess what anything means.
+
+There are a few more technical elements (scales, coordinates, facets) that we'll encounter as we build more complex graphs, but these three concepts will get us started, and honestly, they'll take you pretty far! That said, this chapter is really just scratching the surface of what's possible with `ggplot2`. If you find yourself getting excited about data visualization (and trust me, it's addictive), I highly recommend checking out Hadley Wickham's *ggplot2: Elegant Graphics for Data Analysis* [@wickham2016ggplot2]. It's the definitive guide to the package, written by its creator, and like many R resources, it's freely available online at <https://ggplot2-book.org/>. Now let's jump into making some graphs, starting with bar charts and the most evil chart of them all - the pie chart!
+
+### Bar and Pie Charts
+
+Let's start with bar charts. The typical use of a bar chart is to plot some numeric variable by category. This might be the number of people in different groups, average income by race or gender, or something similar. We will be using the `CPS1985` data from the `AER` package [@AER] which includes 534 observations from the May 1985 Current Population Survey. For full details on the `CPS1985` dataset, check out the `AER` package documentation or run `?CPS1985` in your console.
+
+For basic bar charts, `ggplot()` is considerably easier than base R. Let's jump in with the basic code that will generate a bar chart that counts the number of individuals in the CPS data by occupation:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = occupation)) +
+  geom_bar()
+```
+
+In three lines of code, we have created a very barebones bar chart for our data. How does this code work?
+
+-   `CPS1985 |>` pipes the CPS data into the `ggplot()` function.
+-   The `ggplot()` sets the *aesthetic* for the overall graph with the `aes()` option. I want the x dimension to be the occupation variable, hence `aes(x = occupation)`. Because the default statistic of a bar chart is to give me counts of each group, I don't need to define any other aesthetics.
+-   The `+` at the end of the line allows me to add a layer to my graph.
+    -   This is also a good place to remind you of the "one line, one thing" rule from @sec-wrangling!
+-   `geom_bar()` creates a basic bar chart. The prefix `geom_` tells us that we are adding a *geometry* layer, and our *geometry* is that of a *bar chart*.
+
+::: callout-tip
+###### Data Storytelling: The Three Stages of Graph Evolution
+
+In @sec-litprog Literate Programming, I suggested that documents evolve through stages. So too do graphs.
+
+There's a very similar three-stage approach you might think of with graphs too:
+
+-   Stage 1: Data to Plot - Here you ask the question, "does this show what I think it shows?" There is no need to mess around with making everything look pretty, this is just you exploring the data, trying to find the graph that does the best job of telling the story you want to tell with the data. The focus here is typically on getting the aesthetics and layers right.
+
+-   Stage 2: Basic Communication - The next stage is to ask "can someone else understand this?" In this stage, you need to ensure that the data is labeled, titles are on your graph, and so on. This is when you start adding theme elements, particularly label options.
+
+-   Stage 3: Publication Ready - The final stage is to ask the question of "would I put this in a presentation/report?" This step is putting the final polish on your graph, ensuring your colors are right (are you on brand? Do you need to choose colorblind friendly colors?), etc.
+
+Throughout this chapter, I'll usually show Stage 1 and Stage 2 examples, with occasional Stage 3 examples to show what's possible.
+:::
+
+You might be wondering why we use `|>` to connect `CPS1985` to `ggplot()` but then use `+` to add layers to our graph. Here's the logic:
+
+-   Use `|>` (pipe) when you're passing data from one step to the next. Think "take this data **and then** do something with it."
+
+-   Use `+` (plus) when you're building up layers within ggplot. Think "add this layer **on top of** what I already have."
+
+So `CPS1985  |>  ggplot()` means "take the CPS1985 data and pipe it into ggplot," while `ggplot() + geom_bar()` means "start with a ggplot and add a bar chart layer on top." As a general rule, you always use `|>` for `dplyr` data wrangling tasks, but use `+` for `ggplot()` visualization building.
+
+While we have a perfectly functional graph, it is not that pretty. I don't love the default gray background that `ggplot()` gives, nothing is labeled, and so forth. Let's fix this up with a few more layers and theme options:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = occupation)) +
+  geom_bar() +
+  theme_minimal() +
+  labs(title = "Distribution of Occupations", 
+       caption = "Random sample of 534 observations from 1985 CPS",
+       x = "", 
+       y = "Number of Observations")
+```
+
+This code starts with the barebones code from above and augments it to add some additional elements and layers, and with just a few more lines the graph is a lot more readable. Here is what got added:
+
+-   `theme_minimal()`: There are a few "all-in-one" themes built into `ggplot()` that alter the appearance of the graph considerably, and `theme_minimal()` is probably my favorite general-purpose theme. The other themes are `theme_gray()` (technically the default theme), `theme_bw()`, `theme_linedraw()`, `theme_light()`, `theme_dark()`, `theme_classic()`, and `theme_void()`. It's worth taking a look at these to see which you prefer.
+
+-   `labs()`: Short for **labels**, specifying labels and titles are essential for readability. By default, `ggplot()` labels axes with the variable names from your dataset, but these aren't always reader-friendly. Here we've added a title, caption, and changed the y-axis from "count" to the more intuitive "Number of Observations." For the x-axis, since our title already specifies we're looking at occupations, the default "occupation" label is redundant, so `x = ""` removes it entirely.
+
+::: callout-tip
+###### Data Storytelling: The Self-Contained Graph Test
+
+A well-designed graph should tell a complete story on its own. If you handed your graph to a friend or colleague or teacher with no context, could they understand what they're looking at and what point you're making? Good graphs don't require you to be standing there explaining what everything means.
+
+To illustrate this point, I'm going to do things a bit backwards for a moment. I'll start by showing you a graph without any of the code that wrangles the data so you can't cheat and look up the data yourself (I mean you can still cheat by scrolling down a bit but whatever). Look a look at this graph; what does it show?
+
+```{r}
+#| include: false
+
+data(Seatbelts)
+sb <- Seatbelts |> 
+  as.tibble() |> 
+  mutate(year = floor((1969 + (row_number()-1)/12))) |> 
+  group_by(year) |> 
+  mutate(drivers = sum(drivers)) |> 
+  select(year, drivers) |> 
+  distinct()
+```
+
+```{r}
+sb |> 
+  ggplot(aes(y = drivers, x = year)) + 
+  geom_line()
+```
+
+Based on the default labeling, it looks like a time trend of some sort because the x-axis is labeled "year", but drivers could be anything. Something about automobiles, maybe? Traffic safety or number of people getting their licenses? Number of taxi drivers? Or maybe some other kind of drivers. Perhaps we are looking at the data for sales on golf clubs or screwdrivers? If screwdrivers, the tool or the cocktail? And for all of these, where? US? Worldwide? Who knows?
+
+This graph cannot stand alone. And generally speaking, it's not good enough to have a thorough description of the graph in the text around your graph (although you do need that!). A graph needs to tell a self-contained story, so let's put some labels in here:
+
+```{r}
+sb |> 
+  ggplot(aes(y = drivers, x = year)) + 
+  geom_line() +
+  geom_vline(xintercept = 1983, linetype = "dashed") +
+  theme_classic() +
+  labs(title = "UK Traffic Fatalities, 1969 - 1984", 
+       subtitle = "Mandatory Seatbelt Law Goes Into Effect January 1983",
+       y = "Traffic Fatalties", 
+       x = "Year")
+```
+
+With just a little more effort, we can see what the graph is showing. All I really added was a title/subtitle, axis labels, and the dashed line to show the date when compulsory wearing of seatbelts went into effect. And now, the graph now tells a story.
+
+As promised, here is the code that generates the data from the `Seatbelts` dataset built into R. The original data is monthly and not in a format that the `tidyverse` likes (`dplyr` and `ggplot()` don't play nicely with data configured for the sorts of Time Series stuff we will see in @sec-timeseries); most of what you see here is just an application of the data wrangling techniques from @sec-wrangling. It changes the data type (that's the `as.tibble()` line), creates a year variable (that's the `mutate()`), and then converts the monthly data into annual data:
+
+```{r}
+#| execute: false
+
+data(Seatbelts)
+sb <- Seatbelts |> 
+  as.tibble() |> 
+  mutate(year = floor((1969 + (row_number()-1)/12))) |> 
+  group_by(year) |> 
+  mutate(drivers = sum(drivers)) |> 
+  select(year, drivers) |> 
+  distinct()
+```
+:::
+
+Our occupation graph is fine, but suppose we really want to elevate this graph. Let's think about what we might need to do to make this publication worthy. First, we might think about color. Since this is Data from the US Census, let's imagine that we want to use the official colors of the US Census. I went online and grabbed the official version of the color blue they list in their style guide [@censusstyle], which is `#205493`, so we can include that as a color in the graph. I'm going to add a black outline to the bars to make them pop as well; since black is one of the many "named colors" in R, we'll just refer to it as `"black"` (If you want to learn more about named colors, try running `demo("colors")`!). We might also think to flip the orientation (horizontal bars instead of vertical bars), clean up the gridline situation, remove some empty space between the axis and the beginning of the bars, and alphabetize and capitalize the occupations:
+
+```{r}
+CPS1985 |> 
+  mutate(occupation = fct_rev(fct_relevel(occupation, sort(levels(occupation))))) |> 
+  mutate(occupation = fct_relabel(occupation, str_to_title)) |> 
+  ggplot(aes(y = occupation)) +
+  geom_bar(fill = "#205493",
+           color = "black") +
+  scale_x_continuous(expand = c(0,0)) +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank()) +
+  labs(title = "Distribution of Occupations", 
+       caption = "Random sample of 534 observations from 1985 CPS",
+       y = "", 
+       x = "Number of Observations")
+```
+
+Real talk: the code complexity just took a bit of a jump here. The `fct_` functions are doing some behind-the-scenes magic to alphabetize and capitalize the occupation labels, but don't stress about understanding them right now. Here's the thing about making graphs in R: it follows the classic 80-20 rule. Getting from ugly to pretty good takes about 20% of the effort and is usually pretty easy, but going from pretty good to magazine-quality? That's the other 80% right there, and it can require some serious code gymnastics. It's why you don't do it until you are sure about the basics of your graph. The payoff is worth it though; this graph is way more polished than our earlier versions!
+
+The other primary way to display categorical data is via a pie chart. Fun fact: many people who study data visualization believe that a pie chart is a really awful way to graph data. Case in point: the folks behind `ggplot2` did not provide an easy way of making a pie chart, they know better!
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-alt: 'IQ Bell Curve/Midwit meme.  Caption above the midwit: "I love pie charts!" Caption above both the genius and dimwit: "Pie charts are hard to understand"'
+#| out-width: 50%
+
+knitr::include_graphics("images/normalpie.jpg")
+```
+
+Base R, however, has no such qualms about letting you make questionable life choices. Making a pie chart is quite simple and requires two steps. First, you need to use the `table()` function to create the actual data to be graphed:
+
+```{r}
+jobtype <- table(CPS1985$occupation)
+jobtype
+```
+
+As you can see, `table()` creates a cross-tabulation table of the variable you feed it. From there, the base R pie chart is generated with the `pie()` function:
+
+```{r}
+pie(jobtype)
+```
+
+In base R, it is easy as pie. Ugly, but easy. For what it's worth, the base R version of the bar chart requires the same initial step of making the cross-tab and then plugging it into the `barplot()` function.
+
+```{r}
+barplot(jobtype)
+```
+
+::: callout-tip
+###### Data Storytelling: Why Pie Charts Are Evil (A Scientific Demonstration)
+
+I am firmly on team "Pie Charts are Evil," and I'm about to demonstrate why with a simple experiment. Here's the thing: our brains just aren't wired to accurately compare angles and pie slices, which is exactly what pie charts force us to do.
+
+Let me show you what I mean. I'll simulate rolling 100 dice and then compare how pie charts vs. bar charts handle the results:
+
+```{r}
+set.seed(8675309) # Jenny!
+dice_rolls <- sample(1:6, 100, replace = TRUE)
+dice_counts <- table(dice_rolls)
+```
+
+Now, which visualization actually lets you see which number came up most often?
+
+Starting with the pie chart:
+
+```{r}
+pie(dice_counts)
+```
+
+Seriously, can you tell the difference between the slices for 3 and 6? What about 1, 4, and 5? Your brain is working overtime trying to compare these curved slices, and it's probably getting it wrong.
+
+Now, compare this to the bar chart:
+
+```{r}
+barplot(dice_counts)
+```
+
+The differences are immediately obvious! Your brain is excellent at comparing heights - that's what bar charts give you to work with.
+
+Just to confirm what the bar chart made obvious (but the pie chart made non-obvious!), here are the actual counts:
+
+```{r}
+#| tbl-cap: "Simulated Dice Roll Results"
+#| echo: false
+
+knitr::kable(dice_counts, col.names = c("Die Face", "Count")) 
+```
+
+BTW, this isn't just me being a data visualization snob. There's actual research [e.g. @cleveland1984] showing that people make more errors reading pie charts than bar charts. When you use a pie chart, you're literally making your audience work harder to understand your data. If you get to choose the presentation type, Why would you do that to them?
+:::
+
+With some work, pie charts can also be made using `ggplot()`. However, I feel it is my responsibility to discourage you from making poor life decisions, and making pie charts is among the worst decisions one can make in life. Seriously, if you are making a pie chart, you really ought to be asking yourself what set of awful decisions did you make in your life that led up to a point where you are currently making a pie chart.
+
+But, I get it. Maybe your boss or teacher or whomever really wants a pie chart. Definitely not you, you are better than that.
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-alt: 'Anakin-Padme meme.  Anakin: "I need to make a pie chart". Padme: "They told you it has to be a pie chart, right?" Anakin: <resolute stare> Padme: <worried look> "Right?"'
+#| label: fig-padme-anakin
+#| out-width: 70%
+
+knitr::include_graphics("images/anakinpadmepie.jpg")
+```
+
+If it can be done, then I suppose it will be done! Making pie charts in `ggplot()` requires us to make a special version of a stacked barchart, which we will discuss later, so the `ggplot()` based instructions on making [Pie Charts] will have to wait until a little later in the chapter.
+
+### Boxplots
+
+A **boxplot** (sometimes called a **Box and Whiskers Plot**) is a very common way of displaying the distribution of numerical data by showing the 0th, 25th, 50th (median), and 75th percentiles as a box, with whiskers extending to show the range of the data (excluding outliers). I usually skip them when I teach intro to stats because they are stupidly hard to make in Excel. But they are a snap in R.
+
+Let's create a boxplot of the `wage` variable in the `CPS1985` dataset we've been using all chapter. If we want our boxplot to be oriented vertically, we can set `y = wage` (for a horizontal orientation we would set `x = wage`) as our aesthetic in `ggplot()`. A boxplot is a type of geometry, hence `geom_boxplot()`.
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(y = wage)) +
+  geom_boxplot() 
+```
+
+The boxplot shows us the 1st-3rd quartiles of the data, and the dots are the outliers. If we want to turn our boxplot into a box and whiskers plot, we need to add our whiskers with the `stat_boxplot` layer, as seen here:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(y = wage)) +
+  stat_boxplot(geom = "errorbar", width = 0.5) +
+  geom_boxplot() 
+
+```
+
+Finally, let's clean this up just a little:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(y = wage)) +
+  stat_boxplot(geom = "errorbar", width = 0.5) + 
+  geom_boxplot(fill = "lightblue") +
+  theme_minimal() +
+  labs(title = "Distribution of Wage Variable",
+       subtitle = "CPS1985 dataset from AER package",
+       y = "Hourly Wage",
+       x = "")
+```
+
+::: callout-tip
+###### Data Storytelling: Layer Order Matters
+
+You may have noticed that, when I added the `stat_boxplot()`, I put it *before* the `geom_boxplot()`, and perhaps you wondered if it mattered. Turns out that yes, it did. When building `ggplot()` visualizations, layers are placed on top of each other in order, and I really wanted the `geom_boxplot()` *on top of* the `stat_boxplot()`. Let's take a look at the difference.
+
+First, let's see what the individual parts of the box and whiskers plot are doing; I'm using the `fill = "transparent"` and `color = "transparent"` arguments (`fill` is for areas, `color` is for lines and points) to make different pieces of the graph transparent:
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Boxplot"
+#|   - "Whiskers"
+
+# Graph 1 code
+CPS1985 |> 
+  ggplot(aes(y = wage)) +
+  stat_boxplot(geom = "errorbar",  color = "transparent", width = 0.5) + 
+  geom_boxplot(fill = "lightblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Just the Boxplot")
+
+# Graph 2 code  
+CPS1985 |> 
+  ggplot(aes(y = wage)) +
+  geom_boxplot(fill = "transparent", color = "transparent") +
+  stat_boxplot(geom = "errorbar", width = 0.5) + 
+  theme_minimal() +
+  labs(title = "Just the Whiskers")
+```
+
+Notice that the whiskers on the `geom_boxplot()` don't go through the box, but the `stat_boxplot()` line is solid. So let's see what happens when we switch the order of those lines.
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Whiskers First (Preferred)"
+#|   - "Boxplot First (Not Preferred)"
+
+# Graph 1 code
+CPS1985 |> 
+  ggplot(aes(y = wage)) +
+  stat_boxplot(geom = "errorbar", linewidth = 1, width = 0.5) + 
+  geom_boxplot(fill = "lightblue", color = "black", linewidth = 1) +
+  theme_minimal() +
+  labs(title = "Whiskers First")
+
+# Graph 2 code  
+CPS1985 |> 
+  ggplot(aes(y = wage)) +
+  geom_boxplot(fill = "lightblue", color = "black", linewidth = 1) +
+  stat_boxplot(geom = "errorbar", linewidth = 1, width = 0.5) + 
+  theme_minimal() +
+  labs(title = "Boxplot First")
+```
+
+I thickened up the lines a bit to make the difference apparent. In the version where the `stat_boxplot()` comes first, the `geom_boxplot()` is placed on top of it and the vertical line is covered. When `geom_boxplot()` comes first, the full vertical line can be seen because the `stat_boxplot()` is drawn on top of the boxplot itself. The former is the preferred look, which is why I did it in the order I did.
+
+But there is a useful lesson in this little digression. When making graphs with `ggplot()`, all the work is done in order from top to bottom, which means that **layer order matters**. Each new layer gets painted on top of the previous ones, so elements added later can cover up elements added earlier. Always think about what should be in front and what should be in back when building complex visualizations.
+:::
+
+Typically, we wouldn't make a boxplot just to look at the distribution of an entire dataset (the super wide box is honestly pretty ugly, and [Histograms] are more appropriate for that); rather, boxplots are best when used to compare distributions across multiple groups. Let's take a look at the distribution of wages by each of the 6 occupation groups in the `CPS1985` dataset:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = occupation, y = wage)) +
+  stat_boxplot(geom = "errorbar", width = 0.5) + 
+  geom_boxplot(fill = "lightblue") +
+  theme_minimal() +
+  labs(title = "Distribution of Wage Variable by Occupation Group",
+       subtitle = "CPS1985 dataset from AER package",
+       y = "Hourly Wage",
+       x = "Occupation")
+    
+```
+
+The aesthetic of `aes(x = occupation, y = wage)` tells the `ggplot()` that we are plotting wage on the y (vertical) axis and occupation on the x (horizontal) axis. We can get more complicated with our boxplots. Let's say we want to look at gender differences in the distribution of wage.
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = gender, y = wage)) +
+  stat_boxplot(geom = "errorbar", width = 0.5) +
+  geom_boxplot(fill = "lightblue") +
+  theme_minimal() +
+  labs(title = "Distribution of Wage Variable by Gender",
+       subtitle = "CPS1985 dataset from AER package",
+       y = "Hourly Wage",
+       x = "")
+
+```
+
+Men seem to make more. Maybe your theory is that this gender wage gap is driven by marital status, so now we have 2 factor variables. We can include one of these factors as a fill aesthetic:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = married, y = wage, fill = gender)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Distribution of Wage Variable by Gender and Marital Status",
+       subtitle = "CPS1985 dataset from AER package",
+       y = "Hourly Wage",
+       x = "Marital Status",
+       fill = "Gender")
+```
+
+A few things to note about the above code:
+
+-   I removed the `stat_boxplot()` because it doesn't do a great job aligning itself with grouped boxes.
+
+-   I eliminated the `fill` option in `geom_boxplot`. Why? because I want the fill from the aesthetic to work! Right now, the genders have different colors for their boxplots. If I specified `fill` in the `geom_boxplot()`, because it happens *after* the `aes()`, the color coded genders will be overwritten!
+
+-   Variables in the `aes()` that are **not** your x and y variables - variables like `fill`, `color`, `size`, or `shape` - will automatically generate a legend. To name the legend, I added the `fill = "Gender"` line into the `labs()` function.
+
+What happens if we put married as our fill variable and gender as our x variable?
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = gender, y = wage, fill = married)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Distribution of Wage Variable by Gender and Marital Status",
+       subtitle = "CPS1985 dataset from AER package",
+       y = "Hourly Wage",
+       fill = "Marital Status",
+       x = "Gender")
+```
+
+Same data, same boxes, but the arrangement of the boxes tells a different story.
+
+Finally, for fun, let's consider taking this last graph and elevating it a bit:
+
+```{r}
+CPS1985 |> ggplot(aes(x = married, y = wage, fill = gender)) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = "Does Marriage Influence the Gender Wage Gap?", 
+         subtitle = "1985 CPS data",
+         x = "", 
+         y = "Wages",
+         fill = "",
+         caption = "@mattdobra") +
+    scale_fill_manual(values= c("deepskyblue4", "darksalmon"),
+                      labels = c("male" = "Male", "female" = "Female")) +
+    theme(legend.position = "bottom",
+          legend.direction = "horizontal") +
+    scale_x_discrete(labels = c("no" = "Unmarried", "yes" = "Married")) 
+
+```
+
+Here's a quick breakdown of the changes I made:
+
+-   Visual and Aesthetic Changes:
+
+    -   Custom colors: Replaced R's default red/teal with deepskyblue4 and darksalmon - a different take on blue/pink that's less jarring than stereotypical gender colors
+
+    -   Legend positioning: Moved legend to bottom with horizontal orientation for cleaner layout
+
+    -   Cleaner legend: Removed legend title (fill = "") since "Male/Female" labels are self-explanatory
+
+-   Readability Improvements:
+
+    -   More compelling title: Changed from descriptive "Distribution of..." to research question "Does Marriage Influence the Gender Wage Gap?"
+
+    -   Better axis labels: "Unmarried/Married" instead of "no/yes" - no guessing required. This also allows me to remove the x-axis title entirely (`x = ""`) because the combination of our compelling graph title and self-explanatory axis labels means readers don't need that extra layer of explanation.
+
+    -   Capitalized legend labels: "Male/Female" instead of lowercase variable values
+
+    -   Added subtitle and caption: Context and attribution
+
+### Histograms
+
+Like [Boxplots], histograms are useful for displaying the distribution of continuous data. Also like [Boxplots], these are much easier to create in R than in Excel! Since histograms and boxplots have similar vibes, let's continue to look at the distribution of respondent income in the CPS1985 data set so you can think about which works better for this data.
+
+```{r}
+CPS1985 |> ggplot(aes(x = wage)) +
+    geom_histogram()
+```
+
+As you can see, we got a message telling us that `geom_histogram()` defaults to 30 bins, and the implied critism is that perhaps 30 is not the right number of bins for your data! This is generally a true statement, by the way, the right answer is probably not to stick with the defaults. We have options for fixing this:
+
+-   Change the width of the bins with `binwidth =`
+-   Set the number of bins explicitly with `bins =`
+-   Look the other way, set `#| message: false` in the YAML so the message doesn't pop up anymore, and move on with our lives. YOLO!
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-alt: 'Leslie Nielsen meme: He is saying "Nothing to see here, Please disperse" as people flee from an exploding building behind him'
+#| out-width: 75%
+
+knitr::include_graphics("images/nothingtosee.jpg")
+```
+
+Choosing bins is equal parts art and science, and the authoritative "rules" for it aren't always up to the task when it comes to real world data, especially data describing human behavior. I've never particularly liked any treatment I've seen for choosing it in intro stats texts. So I'll share with you my general method for choosing bins:
+
+1.  Start with the $\sqrt{n}$. This gives a rough approximation of how many bins I should have.
+2.  Identify the range of the data, ignoring outliers, you probably want something like the 2nd percentile and the 98th percentile. Divide the range by the $\sqrt{n}$, this gives you a rough idea of what the right binwidth should be.
+3.  Identify round numbers and natural breakpoints to ensure the data isn't going to be too "lumpy." No, that's not a technical term. I'll explain more when I give an example!
+4.  Set binwidths based on the first three guidelines.
+5.  Don't be afraid to ignore the first 4 rules if needed.
+
+So, for this case, we start with step 1 and note that the dataset includes 534 observations, and $\sqrt{534} \approx 23.11$. For step 2, our 2nd and 98th percentile values are \$3.35 and \$22.97, so a `binwidth` of around \$0.84 is a good starting point. But now for step 3: using binwidths of \$0.84 might create problems as real world hourly wages are far more likely to be \$8.00 or \$9.00 than \$8.01 or \$8.99, because humans like round numbers. And if we had bins of \$0.84 or whatever, we might wind up with a bin from \$8.03 to \$8.87 and it would look arbitrarily small compared to the bin that preceded it and the bin that came after it - not because wages are multimodal or something but just because of the lumpiness of the underlying numbers. So we probably want to instead think about using round numbers for our bins, so we are now thinking about intervals of \$1.00. So we will start there, but also consider maybe bigger numbers (binwidths of maybe \$1.50 or \$2.00) if it creates a smoother graph. But not too smooth...like I said, art and science.
+
+To see what this all looks like in action, let's start with a graph that has the `binwidth` set way too low with `binwidth = 0.42`. Here, you can imagine bins like \$7.52 to \$7.94 that will contain very few people with those wages, meanwhile the bins in which round numbers fall like \$7.00 or \$8.00 will look like spikes in the graph.
+
+```{r}
+#| fig-cap: "Binwidth = 0.42 (Super Lumpy)"
+
+CPS1985 |> ggplot(aes(x = wage)) +
+    geom_histogram(binwidth = 0.42) +
+    theme_minimal() +
+    labs(title = "Binwidth = 0.42")
+```
+
+The human tendency to like round numbers makes the data lumpy, and choosing too small bins makes the histogram spiky (also not a technical term). By the way, here is a list the wages in the dataset that appear at least 10 times:
+
+```{r}
+#| echo: false
+
+wages <- CPS1985 |> 
+  group_by(wage) |> 
+  mutate(count = n()) |> 
+  select(wage, count) |> 
+  distinct() |> 
+  arrange(-count) |> 
+  filter(count>=10)
+
+knitr::kable(wages, , col.names = c("Hourly Wage", "Count"))
+```
+
+Notice a pattern? The two most common are multiples of \$5.00, then you have \$7.50 (the halfway point between \$5.00 and \$10.00), and then \$6.25 (the halfway point between \$5.00 and \$7.50). Over half of the entries are round numbers, and all but one are multiples of 0.25. The outlier, \$3.35? That's the minimum wage in 1985!
+
+Data generated by human processes or about humans are notorious for this sort of lumpiness. And money is inherently lumpy, I guess, but think about something that is not. Human height. It's probably the case that the number of men in the world who are 72" tall (6 feet) is roughly the same as the number who are 71.9" tall or 72.1" tall, but who the heck says they are 72.1" tall? Nobody! And from what I can tell, most people who are 70" tall round up to 6 foot anyway...look guys, I'm a legit 6'2", I can see what you are doing from up here.
+
+Moving on to the two mentioned above, the next two graphs set binwidths of \$0.84 and \$1.00, respectively:
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Binwidth = 0.84 (Mathematical)"
+#|   - "Binwidth = 1 (Practical)"
+
+# Mathematical approach
+CPS1985 |> ggplot(aes(x = wage)) +
+    geom_histogram(binwidth = 0.84) +
+    theme_minimal() +
+    labs(title = "Binwidth = 0.84")
+
+# Round number approach  
+CPS1985 |> ggplot(aes(x = wage)) +
+    geom_histogram(binwidth = 1) +
+    theme_minimal() +
+    labs(title = "Binwidth = 1")
+```
+
+While not as pronounced as the `binwidth = 0.42` version, the `binwidth = 0.84` graph is indeed a little spikier than using `binwidth = 1`, I think I'd prefer the latter. We might even consider bigger binwidths to see what they look like; here are binwidths of \$1.50 and \$2.00:
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Binwidth = 1.5 (Smoother)"
+#|   - "Binwidth = 2 (Very Smooth)"
+
+CPS1985 |> ggplot(aes(x = wage)) +
+    geom_histogram(binwidth = 1.5) +
+    theme_minimal() +
+    labs(title = "Binwidth = 1.5")
+
+CPS1985 |> ggplot(aes(x = wage)) +
+    geom_histogram(binwidth = 2) +
+    theme_minimal() +
+    labs(title = "Binwidth = 2")
+```
+
+Now we are getting to the point that we are eliminating a lot of the artifacts that are creating the artificial lumpiness in the data, but at a cost of losing precision. I'll say it again, art and science. I think either the \$1.00 or \$\$2.00 graph work the best for me, so let's go ahead and clean up the \$2.00 by setting some common options that are typical when using `geom_histogram()`:
+
+```{r}
+#| fig-cap: "Histogram" 
+
+CPS1985 |> ggplot(aes(x = wage)) +
+  geom_histogram(binwidth = 2,
+                 fill = "lightsteelblue",
+                 color = "steelblue") +
+  theme_minimal() +  
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(title = "Distribution of Wages",
+       subtitle = "Data from 1985 CPS",
+       caption = "Sample Size: 534",
+       y = "Count",
+       x = "Hourly Wage")
+```
+
+Just a few finishing touches make this histogram much more polished:
+
+-   Custom colors: The `fill` and `color` options give us a cohesive blue theme instead of the default gray. Remember, `color` is for points and lines (0 and 1 dimensional objects) while `fill` is for areas (2 dimensional spaces)
+-   Cleaner gridlines: Removing vertical gridlines with `theme()` since they're not particularly helpful for histograms
+-   Tighter spacing: `expand = c(0,0)` eliminates the awkward white space between the axes and the data
+-   Complete labeling: Title, subtitle, and caption provide context, and capitalizing "Count" is cleaner than the default "count"
+
+### Stacked and Grouped Bar Charts (and Pie Charts I Guess)
+
+Stacked and Grouped Bar Charts are typically used to look at compositions of groups...that is to say, groups within groups. First you group, then you subgroup. This is a pretty simple augmentation to the `geom_bar()` from above, where all we need to do is set both an `x` variable for our groups, and a `fill` variable for our subgroups within our groups. This looks at the distribution of genders within each occupation class in the `CPS1985` data:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = occupation, fill = gender)) +
+  geom_bar() 
+```
+
+Let's clean this up and definitely edit the colors. Gender stereotype colors (i.e. blue for men, pink for women) probably enhance readability to the viewer, but if you want to avoid them, then you probably don't want to do the exact opposite of what people expect! We'll stick with our blue/salmon combo that's less jarring but still provides good contrast. Plus, nothing is easier than doing a copy/paste on the `scale_fill_manual()` line from a few graphs back that we *know* works, as well as give this chart some labels:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = occupation, fill = gender)) +
+  geom_bar() +
+  theme_minimal() +
+  scale_fill_manual(values= c("deepskyblue4", "darksalmon"),
+                    labels = c("male" = "Male", "female" = "Female")) +
+  labs(x = "Occupation",
+       y = "Count",
+       fill = "Gender",
+       title = "Distribution of Gender by Occupation")
+```
+
+Rather than stacking the bars, we can create side-by-side bars by adding the `position = "dodge"` option in the `geom_bar()` layer.
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = occupation, fill = gender)) +
+  geom_bar(position = "dodge") +
+  theme_minimal() +
+  scale_fill_manual(values= c("deepskyblue4", "darksalmon"),
+                    labels = c("male" = "Male", "female" = "Female")) +
+  labs(x = "Occupation",
+       y = "Count",
+       fill = "Gender",
+       title = "Distribution of Gender by Occupation")
+```
+
+A common use of the stacked bar chart is to compare subgroup proportions between groups. For example, in the graphs above, we can see that there are more people in the technical category than in sales, but it's harder to compare the relative gender percentages across occupations. Is the percentage of men in technical higher or lower than in sales? And by how much? To accomplish this, we use the `position = "fill"` option in our `geom_bar()` layer.
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(x = occupation, fill = gender)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  scale_fill_manual(values= c("deepskyblue4", "darksalmon"),
+                    labels = c("male" = "Male", "female" = "Female")) +
+  labs(x = "Occupation",
+       y = "Share",
+       fill = "Gender",
+       title = "Distribution of Gender by Occupation")
+```
+
+This version of the stacked bar chart makes it easier to compare subgroup proportions across groups.
+
+#### Pie Charts
+
+And we are back at pie charts. I kindly ask that you refer back to my Padme/Anakin meme (@fig-padme-anakin) from above before continuing to read.
+
+Most people's default understanding of a pie chart is as a circle that is used to represent proportions; the circle is divided into wedges of various sizes, where each wedge represents a group, and the size of each wedge indicates the proportion of the whole that group makes up. This is all well and good, but to make a pie chart in `ggplot()`, we need to develop a different intuition: a pie chart is a stacked bar chart that you have forced to be round.
+
+To see what I mean, let's start with a simple stacked bar chart of the occupation data. The code is fairly straightforward, the only oddity here is the use of the `y = ""` in the `aes()` argument. The effect of this is to simply select the entire dataset. Setting the width of the `geom_bar()` is not necessary, it just aids in my being able to place a visual cue in the next graph. I'm also using the `viridis` color scheme to aid with graph visibility.
+
+```{r}
+CPS1985 |>  
+  ggplot(aes(y = "", fill = occupation)) +
+  geom_bar(width = 0.5) +
+  scale_fill_viridis_d() 
+```
+
+Behold this horizontal stripe of rainbowy goodness! Next, let's place a reference dot along the top of the bar, exactly in the middle of the x dimension. I've done this below with the `geom_point()` layer. :
+
+```{r echo = TRUE}
+CPS1985 |> 
+  ggplot(aes(y = "", fill = occupation)) +
+  geom_bar(width = 0.5) +
+  scale_fill_viridis_d() +
+  geom_point(y = 1.25, x = 267, size = 2.2, show.legend = FALSE)
+```
+
+Now, imagine what would happen if you took this shape and started bending the two ends upward, using the black dot as a pivot point. This will cause the top edge to shrink and the bottom edge to stretch. Keep bending this shape around that pivot point until the top edge has shrunk to a single point, the bottom edge has created a circle that completely surrounds the black dot, and the two ends connect, so the far left yellow edge is now flush with the far right purple edge. Break the spirit of the noble stacked bar chart, and literally bend it to your will! Now you have a pie chart!
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-alt: 'Dead Baby Voldemort Meme.  First panel: Dead baby Voldemort. Second panel, Harry asks "What Happened to Him?? Third panel, Dumbledore responds "He made pie charts"'
+#| out-width: 50%
+
+knitr::include_graphics("images/piecharts.jpg")
+```
+
+More mathily, we can say that we converted your cartesian coordinate system (the standard $(x,y)$ space you learned in high school algebra) into a polar coordinate system. So we take the stacked bar from above, and add one line of code: `coord_polar(theta = "x")`. And that's all it takes, we have a pie chart:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(y = "", fill = occupation)) +
+  geom_bar(width = 0.5) +
+  scale_fill_viridis_d() +
+  coord_polar(theta = "x")
+```
+
+What is going on with the `theta = "x"` argument? In a polar coordinate system, $\theta$ (or theta) is the term used to refer to the angle of a line radiating from the center of the coordinate system. In the original stacked bar chart, the x-axis was counting how many people were in each group, so the `theta = "x"` argument is telling `ggplot()` to use the x variable from the stacked chart to determine the angles of the wedges. So the ugly thin white line around your pie chart? That's actually your x-axis!
+
+With pie charts, you often want to use the `theme_void()` argument to get rid of all backgrounds and axes and such, and add the stuff you want in manually:
+
+```{r}
+CPS1985 |>  
+  ggplot(aes(y = "", fill = occupation)) +
+  geom_bar() +
+  theme_void() +
+  scale_fill_viridis_d() +
+  coord_polar(theta = "x") +
+  labs(title = "Distribution of Occupation Types",
+       subtitle = "Data from 1985 CPS, n=534",
+       fill = "Occupation")
+```
+
+
+
+#### Donut Charts
+
+We can use this methodology to make some donut charts too. A donut chart is a pie chart with a hole in it. Because somebody thought "how can we make a pie chart worse?" But...you've come this far. Why not see what embracing evil really looks like?
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-alt: 'Skeletor meme.  Caption above Skeletor: "DONUT CHARTS!!!" Small caption below Skeletor "*laughs in evil*"'
+#| out-width: 60%
+
+knitr::include_graphics("images/donut.jpg")
+```
+
+We start by adjusting our `aes()` call to have `y = 2`. The key insight is that you're setting up a coordinate system where you can then "cut out" the middle. The specific number matters because it defines your working space, but the exact value (2, 5, etc.) is flexible based on what proportions you want to achieve. As a rule of thumb, the skinnier the donut, the bigger the `y`.
+
+Now that `y` is a number, we can use the `ylim()` argument to cut out our donut hole. The first number in `ylim()` determines how big a hole we cut--it has to be less than `y` but bigger than 0, and smaller numbers mean we cut bigger holes. The second number controls how much empty space you want around your donut; generally you don't want to go more than 0.5 bigger than your `y` value. The code below sets `ylim(0.2, 2.5)`, and the proportions seem reasonably nice.
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(y = 2, fill = occupation)) +
+  geom_bar() +
+  theme_void() +
+  scale_fill_viridis_d() +
+  coord_polar(theta = "x") +
+  labs(title = "Distribution of Occupation Types",
+       subtitle = "Data from 1985 CPS, n=534",
+       fill = "Occupation") +
+  ylim(0.2, 2.5)
+```
+
+Feel free to play with the `y = 2` option and the `ylim()` parameters to see how you can control the size and shape of the donut. For example, making `y` (and the corresponding upper limit in `ylim()`) bigger makes your donut skinnier:
+
+```{r}
+CPS1985 |> 
+  ggplot(aes(y = 5, fill = occupation)) +
+  geom_bar() +
+  theme_void() +
+  scale_fill_viridis_d() +
+  coord_polar(theta = "x") +
+  labs(title = "Distribution of Occupation Types",
+       subtitle = "Data from 1985 CPS, n=534",
+       fill = "Occupation") +
+  ylim(.2, 5.5)
+```
+
+````{=html}
+<!-- Pie Donut Combo. Too evil to share
+
+To achieve maximal evilness, we can combine these two chart types into the Pie-Donut chart, a chart that combines these two graphical techniques into a chimera of graphical atrocity.  To create such a chart, we need to install the `webr` package (using the code `install.packages("webr")`, as usual).  We will also need to use `dplyr` to format the data into a summary table first:
+
+```{r echo = TRUE, message = FALSE}
+# install.packages("webr")
+library(webr)
+CPS1985 |>  
+    group_by(sector, union) |> 
+    summarize(n = n())
+```
+
+The above code uses the `dplyr` function to create a table that counts the number of people in each possible subgroup combining sector and union.  Next, we pipe that into the `PieDonut` package from `webr`; `PieDonut` works like a `ggplot` graph type, so we need to set the aesthetic using the `aes()` option.  The following code will set the $sector$ variable for the inner pie, the $union$ variable for the outer donut, and the $n$ variable created from the `summarize` function as the count of how many people are in each group:
+
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+CPS1985 %>% 
+    group_by(sector, union)  |>  
+    summarize(n = n()) |>  
+    PieDonut(aes(sector, union, count = n))
+```
+
+The base graph is a bit messy, but can be cleaned up fairly well by adding some arguments. Below, I change the relative sizes of the pie and donut with the `r0` and `r1` arguments, explode the manufacturing sector with the `explode = 1` and `explodeDonut = TRUE` options, and reduce the label sizes for readability with the `pieLabelSize` and `donutLabelSize` options:
+
+```{r echo = TRUE}
+CPS1985 |>  
+    group_by(sector, union) |> 
+    summarize(n = n()) |>  
+    PieDonut(aes(sector, union, count = n),
+             r0 = .2,
+             r1 = .9,
+             explode = 1,
+             showPieName = FALSE,
+             explodeDonut = TRUE,
+             pieLabelSize = 2,
+             donutLabelSize = 2)
+```
+
+Further improvements need to be made with options in `PieDonut`, because many of the typical `ggplot` formatting options are not available.  Unfortunately, this means that the colors are not adjustable. 
+
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+CPS1985 |>  
+    group_by(sector, union) |> 
+    summarize(n = n()) |>  
+    PieDonut(aes(sector, union, count = n),
+             r0 = .2,
+             r1 = .9,
+             explode = 1,
+             explodeDonut = TRUE,
+             showRatioThreshold = FALSE,
+             showPieName = FALSE,
+             pieLabelSize = 2,
+             donutLabelSize = 1.7,
+             title = "Union Membership by Sector",
+             start = getOption("PieDonut.start", 1)
+    )
+```
+
+-->
+````
+
+### Scatter Plots
+
+Scatter plots are useful for looking at the relationship between 2 numerical (preferably continuous) variables. Because there is only 1 continuous variable in the `CPS1985` dataset (wage, the rest are discrete), let's switch to using the `vote1` dataset from the `wooldridge` package. To see what is in this, type `?vote1` in your console. We might also want to get a quick overview of the data with the `head(vote1)` command:
+
+```{r}
+head(vote1)
+```
+
+This is a pretty fun dataset because it allows us to look at the extent to which money influences elections in the US.
+
+Let's look at the relationship between the share of campaign expenditures (`shareA`) and vote share received (`voteA`). We need to set `x` and `y` aesthetics, and the geometry of a scatterplot is `geom_point()`:
+
+```{r}
+vote1 |> 
+  ggplot(aes(x = shareA, y = voteA)) +
+  geom_point()
+```
+
+Why `(x = shareA, y = voteA)` and not `(y = shareA, x = voteA)`? In this case, theory tells that vote share should be the **dependent variable** and campaign expenditures should be the **independent variable**, and when graphing the generally accepted norm is to put the DV (dependent variable) on the Y axis.
+
+::: callout-tip
+###### Data Storytelling: R Doesn't Know Causality
+
+Here's the thing: R doesn't get causality. You could totally flip this and put `voteA` on the x-axis and `shareA` on the y-axis, and R would happily create a perfectly functional scatterplot.
+
+But you know something about how the world works. This is what separates "I can make graphs in R" from "I can actually analyze data." Sure, anyone can plot variables against each other, but understanding which variable is trying to influence which requires you to think about the real world beyond your computer screen. Does campaign spending influence election outcomes, or do election outcomes magically determine how much money campaigns spent months earlier?
+
+Spoiler alert: time generally moves forward, not backward. R doesn't know this. Maybe R thinks that election results magically travel backward through time to force donors in the past to give money to the winners. It's like a [Spider-verse Canon Event](https://intothespiderverse.fandom.com/wiki/Canon_Events) for all R knows. R quite literally just sees numbers and does math. It just follows orders.
+
+Whether you're looking at marketing spend vs. sales, study time vs. test scores, or coffee consumption vs. productivity (definitely a causal relationship there), your job is to bring some actual knowledge about how things work to the table. R will crunch the numbers, but it won't tell you what makes sense.
+:::
+
+Perhaps you want to see the line of best fit? We can add the `geom_smooth(method = lm)` layer to our `ggplot()`:
+
+```{r}
+vote1 |> 
+  ggplot(aes(x = shareA, y = voteA)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+```
+
+::: callout-tip
+###### May the Format be With You: Silencing Chatty Functions
+
+When you run `geom_smooth()`, R likes to tell you it's `using formula = y ~ x`...basically just confirming it's drawing a straight line. While this transparency is nice, it clutters your output. If you are incorporating lines of best fit into charts in a Quarto document, you almost always want to add `#| message: false` to your code chunk to tell R to zip it.
+
+For the scatter diagram above, I didn't suppress the message, but I will do so for the rest of them.
+:::
+
+As before, we can add elements if we want here. For example, maybe we want to highlight which party each candidate belongs to. The `democA` variable uses 1 for Democrats and 0 for Republicans, but `ggplot()` wants factors for color coding, so we need to wrap it in `as.factor()`:
+
+```{r}
+#| message: false
+
+vote1 |> 
+  ggplot(aes(x = shareA, y = voteA, color = as.factor(democA))) +
+  geom_point() +
+  labs(title = "Campaign Spending vs Vote Share by Party",
+       x = "Share of Campaign Expenditures", 
+       y = "Vote Share",
+       color = "Party")
+```
+
+Let's make this more readable by using proper party colors and labels:
+
+```{r}
+#| message: false
+
+vote1 |> 
+  ggplot(aes(x = shareA, y = voteA, color = as.factor(democA))) +
+  geom_point() +
+  scale_color_manual(values = c("0" = "#db2b27", "1" = "#1696d2"),
+                     labels = c("0" = "Republican", "1" = "Democrat")) +
+  labs(title = "Campaign Spending vs Vote Share by Party",
+       x = "Share of Campaign Expenditures", 
+       y = "Vote Share",
+       color = "Party") +
+  theme_minimal()
+```
+
+::: callout-tip
+###### May the Format Be With You: Brand Consistency (or: How to Look Like You Actually Know What You're Doing)
+
+Want to avoid looking like an amateur who just discovered hex codes? Here's a pro tip from the design world: stop typing the same color codes over and over like some kind of data visualization peasant.
+
+Notice how I just typed `"#db2b27"` and `"#1696d2"` in the graph above? Sure, I could keep doing that throughout the entire document, making typos, forgetting exact codes, and writing code that will produce a result that looks sloppy or lazy. Or I could do what the pros do and set up my colors as variables at the beginning:
+
+```{r}
+#| eval: false 
+#| echo: true
+
+# Political party colors - define once, use everywhere
+dem_blue <- "#1696d2"
+rep_red <- "#db2b27"
+```
+
+Which is honestly just being lazy in a smart way. Because then, throughout your document, you can simply reference these variables. For example:
+
+```{r}
+#| eval: false
+#| echo: true
+
+ggplot(data, aes(x = category, y = value)) +
+  geom_bar(fill = dem_blue, color = rep_red) +
+  theme_minimal()
+```
+
+Why is this approach so much better?
+
+-   Consistency: All your graphs will use exactly the same colors - no more "is this the right shade of blue?" moments
+-   Efficiency: No more hunting for hex codes or copying/pasting from old graphs
+-   Flexibility: Need to rebrand everything? In my lecture slides for my Principles of Macro classes, I set up my documents with variables named color1 through color5; all I need to do is change the colors in those five lines at the top, and every color in the document gets an instant makeover.
+-   Professional vibes: Your document gets that polished, branded look that screams "I know what I'm doing"
+
+Whether you're trying to impress a boss, avoid getting roasted by your professor, or just want to make something look super professional, this simple technique will level up your work significantly.
+:::
+
+Let's put this advice into action. First, we'll set up our color variables:
+
+```{r}
+# Political party colors - define once, use everywhere
+dem_blue <- "#1696d2"
+rep_red <- "#db2b27"
+```
+
+Now we can create separate graphs for the Democrats and Republicans using facet_wrap() with our color variables:
+
+```{r}
+#| message: false
+
+vote1 |> 
+  ggplot(aes(x = shareA, y = voteA)) +
+  geom_point(aes(color = as.factor(democA))) +
+  scale_color_manual(values = c("0" = rep_red, "1" = dem_blue)) +
+  facet_wrap(~democA, 
+             labeller = labeller(democA = c("0" = "Republicans", "1" = "Democrats"))) +
+  labs(title = "Campaign Spending vs Vote Share",
+       x = "Share of Campaign Expenditures", 
+       y = "Vote Share") +
+  theme_minimal() +
+  theme(legend.position = "none")  # Remove legend since facet labels tell the story
+```
+
+All in all, R has some extremely powerful graphing capabilities that go well beyond what something like Excel is capable of. These days, when people ask me for help making graphs in Excel, I cringe a little because I know how much better it would look in R. Once you wrap your head around the [Grammar of Graphics] ... aesthetics, layers, themes, etc. ... `ggplot()` becomes way more intuitive than clicking through Excel's endless and counterintuitive menu system. Sure, there's a learning curve up front, but the payoff is graphs that actually look professional and really, really, ridiculously good looking.
+
+## Summarizing Data Numerically
+
+Now that we have seen an overview of the graphical capabilities, let's turn to numerical summaries. We return to the `CPS1985` dataset so we can look at both numerical and categorical variables.
+
+### Categorical Variables
+
+Let's start with categorical variables and focus on occupation. Categorical variables are summarized with frequencies or proportions. The `table()` command (we saw this above when we made [Bar and Pie Charts]) works to create these; by default, `table()` summarizes counts.
+
+```{r}
+table(CPS1985$occupation)
+```
+
+Here's the same analysis of the sector variable:
+
+```{r}
+table(CPS1985$sector)
+```
+
+OK, typing CPS1985\$ over and over is getting pretty cumbersome. There's a shortcut for this called `attach()` that can make your life easier when working with a single dataset.
+
+::: callout-tip
+###### Tip from the Helpdesk: To Attach or Not to Attach?
+
+The attach() function lets you refer to variables in a dataset without typing the dataset name every time. So instead of CPS1985\$occupation, you could just type occupation. Sounds great, right?
+
+So, let's start with why this doesn't work (yet):
+
+```{r}
+#| error: true
+#| echo: true
+
+table(occupation)
+```
+
+Why not? Because R is looking for a variable called `occupation` to make a `table()` with, and it doesn't know where it is. R isn't smart enough to look inside of the `CPS1985` dataset for a variable called `occupation`, so it spits out an error. When I `attach()` the `CPS1985` dataset, I'm simply telling R that it should feel free to look inside the `CPS1985` dataset for variables. In a lot of ways, it's kinda like how libraries work. When I turn on R, it doesn't know what the heck a `ggplot()` is. When I run `library(tidyverse)`, I'm telling R to look inside the `tidyverse` family of functions when I give it a command. If I run `ggplot()` *after* I load the `tidyverse`, R will be able to figure out what `ggplot()` means.
+
+So, let's attach the dataset and see what happens with that same funcion that broke earlier.
+
+```{r}
+attach(CPS1985)
+table(occupation)  # No more CPS1985$ needed!
+```
+
+Ha! Now, you might be wondering why I didn't start with this? Way to bury the lede, right?
+
+While attach() can be a useful crutch when you're learning R and is fine when you're only working with a single dataset, it can create confusion in larger projects. What happens when you have multiple datasets with variables that have the same name? Which age variable is R using - the one from dataset A or dataset B?
+
+Honestly, it's probably worth just biting the bullet and learning to use the `$` notation. You'll see both approaches in the wild, but explicit `dataset$variable` notation will save you headaches down the road when your projects get more complex. Your future self will thank you for the clarity!
+
+For this book, I plan on sticking with the explicit notation, but I reserve the right to switch if the typing gets really tedious or I just get really lazy.
+:::
+
+Let's convert those counts to proportions. The easiest way is to divide your totals by the size of the dataset:
+
+```{r}
+table(CPS1985$occupation) / nrow(CPS1985)
+```
+
+You can also produce contingency (two-way) tables that look at the intersection of two categorical variables:
+
+```{r}
+table(CPS1985$occupation, CPS1985$gender)
+```
+
+This shows us the breakdown of gender within each occupation category in 1985. Now we can see, for example, that the sales and technical roles were roughly evenly split between the genders, while workers tended to be male and office jobs went to females.
+
+### Numerical Variables
+
+While we are limited in how we describe categorical variables, we have lots of options with respect to numerical variables. Let's analyze the wage variable.
+
+Arithmetic means are calculated with the `mean()` function.
+
+```{r}
+mean(CPS1985$wage)
+```
+
+A trimmed mean drops the outliers from the top and bottom of the data. For example, if we type:
+
+```{r}
+mean(CPS1985$wage, trim = 0.05)
+```
+
+We tell R to drop the 5% of the lowest wages and 5% of the highest wages from the data and calculate the mean of the middle 90%. Sometimes this makes sense when you are looking at a data set with a lot of skew. Another thing we might do to get a measure of central tendency for skewed data is to calculate a `median()`.
+
+```{r}
+median(CPS1985$wage)
+```
+
+Generally speaking, medians are the preferred measure of central tendency in cases with skewed data because medians are far less sensitive to the presence of outliers in the data...
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| out-width: 75%
+#| fig-alt: 'Distracted boyfriend meme: The boyfriend (labeled "Mean") is looking at another woman (labeled "Outlier") while his girlfriend (labeled "Median") looks on disapprovingly.'
+
+knitr::include_graphics("images/meanoutlier.jpg")
+```
+
+Variance and Standard Deviation are calculated with `var()` and `sd()`, respectively.
+
+```{r}
+var(CPS1985$wage)
+sd(CPS1985$wage)
+```
+
+Don't forget, the standard deviation is the square root of the variance!
+
+```{r}
+sd(CPS1985$wage)^2
+sqrt(var(CPS1985$wage))
+```
+
+Minima and maxima can be calculated with the `min()` and `max()` commands.
+
+```{r}
+min(CPS1985$wage)
+max(CPS1985$wage)
+```
+
+You can get both easily if you want using `range()`
+
+```{r}
+range(CPS1985$wage)
+```
+
+Measures of position (quartiles, percentiles, etc) can be obtained through the `quantile()` function. You need to pass through a `probs` argument to tell it which quantile you want.
+
+If you just want one specific quantile--in this case the first quartile--you type:
+
+```{r}
+quantile(CPS1985$wage, .25)
+```
+
+You can also use the `c()` language we've seen before to get multiple quantiles at once. For example, if we want the 10th, 25th, 50th, 75th, and 90th percentile, we type:
+
+```{r}
+quantile(CPS1985$wage, probs = c(.1, .25, .5, .75, .9))
+```
+
+The minimum and maximum of the data can also be obtained using the 0th and 100th quartile:
+
+```{r}
+quantile(CPS1985$wage, probs = c(0,1))
+```
+
+Correlation coefficients can be calculated using `cor()`. Here is the correlation between education and wage:
+
+```{r}
+cor(CPS1985$wage, CPS1985$education)
+```
+
+This indicates a moderate positive correlation between the two variables. We can see this correlation in this graph:
+
+```{r}
+#| message: false
+CPS1985 |> ggplot(aes(x = education, y = wage)) +
+    geom_point() +
+    geom_smooth(method = lm)
+```
+
+By default, R calculates the Pearson correlation, which is appropriate for interval data. Sometimes you have ordinal data where a Spearman correlation makes more sense, for example, when the data is a ranking but not a measure. In this case, the Pearson is quantifying the linear relationship between education and wage, but a Spearman test simply asks whether or not higher levels of education are linked to higher wages.
+
+```{r}
+cor(CPS1985$wage, CPS1985$education, method = "spearman")
+```
+
+In most economic applications, Pearson is more useful.
+
+Don't forget, the summary() command can be useful here too:
+
+```{r}
+summary(CPS1985$wage)
+```
+
+The `stargazer()` package/function makes nicely formatted tables of summary statistics, but you have to put in a whole dataframe:
+
+```{r}
+stargazer(CPS1985, type = "text")
+```
+
+It is also capable of making more visually attractive, publication ready tables:
+
+```{r}
+#| results: asis
+stargazer(CPS1985, type = "html")
+```
+
+You can't see it in my code chunk, but to get the `type = "html"` to work right the code chunk needs to have an option of `#| results: asis` or else you will get something funky! We will make extensive use of `stargazer()` later in this book, so file away this tip in your brain for later!
+
+## Wrapping Up
+
+This chapter notebook reviewed what is essentially the first half of an intro to statistics class and introduced how to use R for these calculations. The next step is to tackle inferential statistics using R, which we turn to in @sec-inferstats.
+
+## End of Chapter Exercises
+
+Charts and Graphs: Ensure that your charts include axis labels and titles. Use `ggplot()` for all graphics!!
+
+Throughout this book, datasets are given in the form of `package:dataset`. To access them, you first load the relevant package, and then load the dataset you wish to use. For example, to use the `wooldridge:wine` dataset from question 7, you would use the following commands:
+
+```{r}
+#| echo: true
+#| eval: false
+
+library(wooldridge)
+data(wine)
+```
+
+Bar Charts:
+
+1.  Look at `fivethirtyeight:hiphop_cand_lyrics` and make bar charts of `sentiment` for both Donald Trump and Hillary Clinton. What does this tell you about how hip-hop artists viewed these candidates? What happens if you focus on specific years or break down by different sentiment themes?
+
+2.  Use the `AER:BankWages` data to make bar charts of `job`. Which job type is the most common in the dataset? Create side-by-side or stacked bar charts to examine whether there are different patterns between genders. What does this suggest about gender representation across different banking positions?
+
+3.  For the `AER:BankWages` data, calculate summary statistics for `education` by job type, ethnicity, and gender. Create a summary table showing the mean and median years of education for each combination. Do the numerical summaries reveal patterns about educational requirements or ethnicity/gender differences that weren't obvious in your bar charts from question 2? Do different genders/ethnicities require more/less education to get the premium managerial jobs?
+
+4.  Create bar charts looking at the distribution of student `gender` and `ethnicity` in the `AER:STAR` data. Consider making both separate charts and grouped/stacked charts. What does this tell you about the student population in this study?
+
+Box Plots and Histograms:
+
+5.  Using the `AER:NMES1988` dataset, create a histogram of the number of physician office visits (`visits`) and a box plot examining the number of `visits` by `health` status. What does the distribution of visits look like? How do healthcare utilization patterns differ by health status? Are there outliers, and what might they represent?
+
+6.  Using the `dplyr:starwars` dataset, create a histogram of the `height` of Star Wars characters and a box plot looking at `height` by the `gender` of the characters. What does this tell you about the diversity of character sizes in the Star Wars universe? Are there notable differences between genders?
+
+7.  Using the `dplyr:starwars` dataset, calculate summary statistics (mean, median, standard deviation, quartiles) for `height` by `gender`. How do these numerical summaries compare to what you observed in the box plots from question 5? Which measure of central tendency (mean vs. median) is more appropriate for this data and why?
+
+Scatter Plots:
+
+8.  Use `datasets:USArrests` to look at the relationship between urbanization (`UrbanPop`) and each of the three measures of crime (`Murder`, `Assault`, and `Rape`). Create three separate scatter plots. What patterns do you observe? Does urbanization appear to be related to crime rates? Which crimes show the strongest relationship with urbanization? Including lines of best fit might help with this analysis.
+
+9.  Using `datasets:USArrests`, calculate correlation coefficients between `UrbanPop` and each crime variable. How do these correlations compare to your visual impressions from the scatter plots in question 8? Calculate summary statistics (mean, median, standard deviation) for each crime type - which crimes show the most variability across states?
+
+10. Look at the relationship between alcohol consumption (`alcohol`) and `deaths`, `heart`, and `liver` in `wooldridge:wine`. Create three scatter plots and consider adding trend lines. What do these relationships suggest about the health effects of alcohol consumption? Do the results surprise you?
+
+11. Using `wooldridge:meap01`, look at the relationship between expenditures per student (`expp`) and the various test scores (`math4` and `read4`). Create scatter plots for both relationships. Does more spending appear to be associated with better test scores? Are there outliers that might represent particularly efficient or inefficient school districts?
+
+Thinking about Graphs:
+
+12. Short answer: Compare the histogram and boxplots of `wages` above. Which visualization better represents the distribution of wages, and why? Consider what each type of graph emphasizes and what information might be lost or highlighted in each approach. When would you choose one over the other?
+13. Looking at your analysis from question 10 (`wooldridge:wine`), discuss the difference between correlation and causation. Just because alcohol consumption is correlated with health outcomes, can we conclude that alcohol causes these outcomes? What other factors might be involved?
+14. Choose one of your analyses from questions 5-11 where you identified outliers. Research or speculate about what might cause these outliers. Should they be removed from analysis, or do they represent important information? How might outliers affect your conclusions?
+15. The `AER:STAR` data (question 4) comes from a specific educational study. Based on your analysis of the demographics, discuss how representative this sample might be of the broader U.S. student population. What are the limitations of drawing general conclusions from this specific dataset?
+16. You've now created histograms, box plots, bar charts, and scatter plots. For each type of visualization, describe: (a) what type of data it's best suited for, (b) what patterns it reveals well, and (c) what information it might obscure. If you had to choose only one type of graph to explore a new dataset, which would you pick and why?
+17. In several of your analyses, you likely encountered missing data, unusual values, or data that required interpretation. Choose one example and discuss how data quality issues might affect your conclusions. What steps could researchers take to improve data quality in future studies?

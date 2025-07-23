@@ -1,0 +1,928 @@
+# Data Wrangling and the Tidyverse {#sec-wrangling}
+
+This chapter will take a deeper dive into the techniques used in manipulating and transforming data.
+
+In the world of business and data analytics, as well as when applying the techniques of econometrics in a real-world business scenario, a significant amount of time is spent on **ETL**-Extract, Transform, Load-when managing data. The data we wish to analyze often exists in different places, is saved in incompatible formats, is measured in conflicting or unnatural units, is not recorded in formats that are consistent with the types of questions we want to ask, or is just plain messy. Thus, analyzing data often requires a lot of heavy work up front to:
+
+-   **Extract** the data: The data needs to be pulled in to R from somewhere else. Sometimes this is as simple as loading in nice and tidy CSV file that is ready to go, but sometimes we need to grab data from lots of sources and Frankenstein them together.
+-   **Transform** the data: We often need to combine datasets and/or variables in a way that allows us to conduct the types of analysis we want to. This is especially difficult when the data are coming from different sources, as data from different sources often doesn't fit together neatly. Even if the extraction process is straightforward, we may need to identify problems in the data, convert units of measure, and so forth.
+-   **Load** the data: In an R-based econometrics workflow, the load step can be a bit less obvious, especially if we are not exporting the results of the extract and transform steps into some other software or data warehouse for analysis. In this case, and thus in a lot of what this book does, the transform and load processes are combined into one. However, if we take a bit more of an expansive view of the concept of load, the work we will be discussing in @sec-litprog Literate Programming is a sort of load process, as we will be loading our data and/or analysis into a document format (HTML, PDF, DOC, etc.), which is the endpoint of our analysis.
+
+If it helps, I think a reasonable metaphor for the ETL process is cooking dinner for your family. The extract process is when you go to the store (or multiple stores) to buy ingredients, pull the knives and pots and pans out of your cabinets, etc. The transform process is washing, peeling, seasoning, chopping, cooking, and so forth; taking the raw materials and turning them into something usable for your final product. The load process, then, is plating your food and serving it to your family or guests. Hopefully someone else is doing the dishes!  
+
+While we will be using a variety of packages in this chapter, the one that will be the star of the show is the `tidyverse` [@tidyverse] package. Technically, the `tidyverse` is a collection of packages, and when we run the `library(tidyverse)` command a slew of packages will load; the ones that will be front-and-center in this chapter are `dplyr` [@dplyr] and `readxl` [@readxl], but we will make use of many of the other `tidyverse` packages throughout the book.
+
+Before we get started, you should ensure that you have already installed and loaded into R the packages that will be featured in this chapter:
+
+```{r}
+#| message: false
+#| warning: false
+
+library(tidyverse) # Loads the tidyverse family of packages
+library(readxl) # Allows us to import Excel worksheets into R
+library(openintro) # A data-centric package
+library(gapminder) # Provides a dataset that we will use for examples
+```
+
+In general, I will begin each chapter with a code chunk that loads in each of the libraries that will be utilized within it. This approach keeps everything organized and should help you get ready to dive into the rest of the chapter.
+
+::: callout-tip
+###### Tip from the Helpdesk: Library First Before You Go Go
+
+A good habit when scripting is to load all necessary libraries at the very beginning of your script. For example, because most scripts I write use the `tidyverse` in some way, as a course of habit the first line in nearly every script I write starts with:
+
+```{r}
+#| eval: false
+library(tidyverse)
+```
+
+Why? This ensures that all the tools you need are available up front, avoiding mid-script interruptions. If you are well into your script and discover that you need another package, add its `library()` line to the top of your script-not scattered throughout or at the end.
+
+This tip will become even more important when we get to @sec-litprog Literate Programming, so we may as well start to develop good habits right now!
+
+Also, one more reminder: keep `install.packages()` out of your scripts. This command should generally only be run manually, outside of your script, and only once per package.
+:::
+
+## Loading Data into R
+
+There are three primary ways of loading data into R.
+
+-   Importing from a file: This involves using Base R functions like `read.csv()` or specialized functions in packages like `readr` to read data in from comma-separated values (CSV), text files, or even Excel Workbooks. Many other statistical software packages, such as SAS, Stata, and SPSS, have their own proprietary data formats; these too are typically importable, though they often require specialized packages like `haven` [@haven].
+
+-   Programmatically downloading data: A massive variety of packages exist that allow an R user to pull data into R from other sources. These include packages for web scraping, connecting to databases like SQL, accessing API to pull data from public sources, and so forth. While incredibly versatile, this method often requires specific packages and coding techniques tailored to the source, making it somewhat beyond the scope of this book. However, there’s at least one example later in \@sec-assumptions where we’ll see this in action.
+
+-   Pulling data from an R library: We've already seen that R includes data that can be accessed via the `data()` command in @sec-basicR R and RStudio. In addition to the 100 or so datasets built into Base R (technically they are in the `datasets` [@datasets-2] package that is autoloaded when you start R, but that's splitting hairs), many R packages include datasets that are just as easily loaded into R with `data()`. In fact, there are a lot of R packages that are primarily data libraries that basically exist for the purpose of supplying datasets for teaching and learning.
+
+This book will mostly stick to the third method because it guarantees that the data you’re working with matches exactly what’s used in the examples. For your own projects, though, you’ll probably spend a lot of time importing your own files or programmatically downloading data-essential skills for real-world analysis. I’ll share a few quick tips on importing files, but when it comes to programmatic downloads, your best bet is to dive into the documentation for the specific packages you’re working with.
+
+When importing data from a file, the easiest workflow is typically:
+
+1.  Ensure that the data you are about to import is ready to be imported. Generally this means using software like Microsoft Excel to to ensure that the first row (and only the first row) are variable names, that you have *good* variable names (see the *What's in a Name?* tip below), there are no blank rows or columns, and that the data is in a file format R can handle (R generally does best with CSV or Excel files). In other words, you want your data to be *tidy*, as discussed in @sec-basicR R and RStudio. This step may not always be possible-Excel may not be able to handle opening larger datasets. However, if the dataset is reasonably small, it is worth doing this step first, as it will help make what comes next-data wrangling-significantly easier.
+
+::: callout-tip
+###### Tip from the Helpdesk: What's in a Name?
+
+You can make your coding experience go a lot smoother if you follow some basic guidance when it comes to naming your variables. While R is fairly permissive when it comes to naming variables, here are some tips and conventions to keep in mind when starting out
+
+-   Be descriptive and have variables with names like `age` and `income` instead of `x1` and `x2`. It's not a big deal if those are the only two variables in your dataset, but more often than not, you have dozens of variables and you don't want to have to keep a secret decoder chart handy just to figure out what's what-just because we call it code doesn't mean we want it to be undecipherable!
+
+-   Make consistent use of capitalization and naming conventions. A couple common ones are snake_case (`var_name`), where you use only lowercase characters and put underscores between words, and camelCase (`varName`), where you start with a lower case word, have no spacing between words, and capitalize subsequent words. I personally use snake_case, as you will see throughout this book, however not everybody does. When you are working with data you get from someone else, or working on a project with other people, you either need to adapt or do the work to change the variable names to your preferred convention, which we will discuss later in this chapter. Ultimately, which convention you find works best for doesn't matter; the key is to be consistent and it will make your coding go much more smoothly.
+
+-   Even though you don't strictly have to, you should try to follow the same rules for variable names as are required of object names. That is, start them with letters, and only include letters, numbers, underscores, and periods.
+
+-   Avoid using spaces in variable names at all costs-even though it is allowed, it is a pain to code with variables with spaces in their names. This is often the biggest issue with importing Excel files, which are designed to be viewed by the user and therefore their authors tend to prioritize variable names that are convenient for humans to read, not computers.
+:::
+
+2.  Use the *Files* tab in the utility pane (bottom right pane in RStudio) to navigate to the directory where the file you want to import is located. One of the benefits of working with RStudio Projects is that, if you put the file you are importing in the project directory, locating it is easy and the code you generate later will be more straightforward.
+
+    ![The *Files* tab in the Utility Pane](images/utilitypane.png){width="522"}
+
+3.  Click on the file you want to import, and then choose *Import Dataset...*, which opens up an import wizard. We will be opening the `cars04.xlsx` file, which will ultimately requires us to use the `readxl` package [@readxl].
+
+    ![Choose *Import Dataset...*](images/import_dataset.png){width="226"}
+
+    ![Excel Import Wizard](images/import_wizard.png)
+
+4.  The import wizard should show you a preview of the first 50 rows of data. Make sure that it looks like the data should import correctly. Check your column names and variable types, especially if you skipped step 1 above. Here, I can see that I have my work cut out for me when it comes to variable names-the naming conventions are gross, there are spaces and characters I want to avoid (the variable named `Small/Sporty/ Compact/Large Sedan` hurts my soul). As this is a small data set, I might want to open it up in excel first, rename everything there, and then redo the import. Or, I just anticipate doing this work with code. Regardless, at this point you want to evaluate whether or not you want to do the import right now, or if you want to clean up the file more before you import it. Let's assume that I want to just import the data now. The bottom right area of the import wizard has a section called *Code Preview* with the code that will import the data. Clicking the import button will start the process, but you should also copy and paste this code into your script so you can use it later. Note that if you follow my advice from \@sec-basicR R and Rstudio, you might want to actually put the `library()` calls at the beginning of your script. The third line, `View(cars04)`, just opens the newly created object in your viewer and you should probably toggle it off via the checkbox in the Import Options.
+
+And voilà, you’re done! While these steps outline a general workflow for importing data into R, the specifics can vary depending on the file type, the structure of your data, and the packages you use. If you’re not diligent about using RStudio Projects and working directories, the process can become trickier-you might need to include full file paths in your import code, which can be cumbersome and error-prone, especially when sharing your scripts with others or working on network drives.
+
+While importing data from files is the most common method in the real world, this book will primarily use datasets included in various R packages. This approach ensures that you, dear reader, can access the exact same data used in the examples without any hassle. And, as luck would have it, it just so turns out that there is a slightly different (and thankfully pre-formatted!) version of the `cars04` data in the `openintro` package [@openintro]! Accessing this data is as simple as loading the library:
+
+```{r}
+#| message: false
+#| eval: false
+
+library(openintro) 
+```
+
+And then loading the data into memory as an object with a single command:
+
+```{r}
+#| eval: false
+data(cars04)
+```
+
+Simply executing the command `data(cars04)` creates an object called `cars04` in your workspace. If you would prefer to give the dataset a different name than its default, you can do so with the assignment operator after the `openintro` library has been loaded.
+
+```{r}
+cars2004 <- cars04
+```
+
+Typically, datasets loaded in this way will have a data dictionary that you can check out with the help command. Either `?cars04` or `help(cars04)` will open a help file in the Utility Pane, and you can scroll through the file there to see more about what is in the dataset. A couple important notes on this feature: 
+
+-   You have to use the original dataset name, not something you assigned to it! For instance, in the above code chunk, we made an object called `cars2004` from the `cars04` data. However, `?cars2004` won't work! 
+-   The quality of these help files can vary-some are more useful and descriptive than others!
+
+## Data Wrangling
+
+The term "data wrangling" refers to the process of cleaning, organizing, combining, and transforming raw data into a format that will make it easier to analyze and interpret. This typically involves tasks like fixing errors, reformatting variables, creating and deleting variables, and reorganizing data through sorting, grouping, and filtering. How we wrangle the data is informed by the types of questions we wish to answer; thus, it is an essential first step in data analysis, because we need ensure that the data is appropriately structured to support our goals.
+
+The `dplyr` [@dplyr] package in the `tidyverse` [@tidyverse] houses most of the primary data wrangling functions. The six most important `dplyr` verbs to remember are:
+
+-   `select()` - Selects columns
+-   `filter()` - Filters rows
+-   `arrange()` - Re-orders rows
+-   `mutate()` - Creates new columns
+-   `summarize()` - summarizes variables
+-   `group_by()` - allows you to split-apply-recombine data along with `ungroup()`
+
+Ok, I cheated a bit and snuck a 7th one in there. This section will cover each of these verbs, and I'll certainly be throwing in a few more along the way that I like to use (`distinct()`, `%in%`, `drop_na()`, `n()`, `case_when()`, and `if_else()` come immediately to mind). This section will by no means be a comprehensive review of the `dplyr` or the `tidyverse` and how they can be used; it should, however, provide a solid foundation upon which to build. For a deeper dive in the `tidyverse` family of packages, a good next step would be to check out the free book [*R for Data Science*](https://r4ds.hadley.nz/) [@wickham2017r4ds].
+
+On their own, each verb is not that powerful. But when combined with others, they become mighty-kind of like the Infinity Gauntlet, the Deathly Hallows and/or the Care Bear Stare. As a result, this section will start with simple examples and quickly build to more complex, powerful operations.
+
+### The Pipe Operator
+
+Before we can dig too deeply into these verbs, we need to learn about the pipe operator, `|>`. The keyboard shortcut in RStudio for the pipe is Ctrl + Shift + M (if this shortcut produces `%>%` instead, go to **Tools $\rightarrow$ Global Options $\rightarrow$ Code** and ensure that "Use Native Pipe Operator" is toggled on); this shortcut is worth memorizing, as you will use it a lot!
+
+We use pipes to pass the results from one line into the next line, which creates a logical, step-by-step workflow. Typically, any data wrangling we do is going to begin with something like this:
+
+```{r}
+#| code-fold: false
+#| echo: true
+#| eval: false
+cars04 |> 
+  # Data Wrangling!
+```
+
+This is telling R that I want to start with the `cars04` dataset and put it into whatever I'm doing on the next line. Note that this does not permanently change what is in `cars04`; it starts with `cars04`, pipes it into whatever comes next where I put the `# Data Wrangling!` placeholder, but that's it. It doesn't save it anywhere. In general, when we are data wrangling, we want to retain the changes we made to the dataset, so we need to pair this with the assignment operator.
+
+```{r}
+#| code-fold: false
+#| echo: true
+#| eval: false
+cars_data <- cars04 |> 
+  # Data Wrangling!
+```
+
+This workflow tells R to create a new dataset called `cars_data` that will store the result of my data wrangling that follows.
+
+Another common option is to overwrite `cars04` with our wrangled data:
+
+```{r}
+#| code-fold: false
+#| echo: true
+#| eval: false
+cars04 <- cars04 |> 
+  # Data Wrangling! 
+```
+
+This is fine, but keep in mind that once you have wrangled, you can't always unwrangle. So if whatever follows this line of code doesn't work right, you will have to redo everything up to this point, including reloading in the data and any intermediate steps taken before you got to this stage in your work. To avoid losing your original data, always consider creating a new object for the transformed data.
+
+::: callout-tip
+###### Tip from the Helpdesk: A Tale of Two Pipes
+
+There are technically *two* pipe operators that are commonly used in R, `|>` and `%>%`. The first one, `|>`, is part of Base R, whereas the second one, `%>%`, is part of the `magrittr` package in `tidyverse`. I will be using the Base R version, but both do the same thing; pass the output of one line into the next line.
+
+If you are searching for R help on the internet, it is highly likely that you will see a lot of people using the `%>%` version. This is because the `|>` version was only added to Base R in 2021, whereas the `%>%` pipe in the tidyverse has been around a lot longer. If you see a `%>%`, just treat it like `|>`.
+
+However, a word of caution: `%>%` requires loading the `tidyverse.` If you use code with `%>%` without first running `library(tidyverse)`, you’ll encounter an error like `Error: could not find function "%>%"`. To avoid this, either replace `%>%` with `|>` or make sure to load the `tidyverse` first.
+:::
+
+Pipes can be, and are quite often, chained. I will explain more about the commands in this next chunk when I get to the relevant sections later in this chapter, but to illustrate the concept of chaining pipes, let's say I want a list of the cars and prices in `cars04` that had an MSRP (manufacturer's suggested retail price) over \$75,000, and I want them in order from most to least expensive. This means I want to get rid of all observations that don't match my criteria (`filter`), get rid of all the other data about these cars (`select`, and put them in order (`arrange`). I will do these commands in order, piping the results of one command into the next line:
+
+```{r}
+cars04 |> 
+  filter(msrp > 75000) |> 
+  select(name, msrp) |> 
+  arrange(-msrp)
+```
+
+When looking at code like this, the best way to read the `|>` is to say the words "and then" in your mind when you are deciphering the code. In other words, the code above says to take the `cars04` dataset, *and then* filter it, *and then* select columns, *and then* arrange the data based on the `msrp` variable.
+
+::: callout-tip
+###### Tip from the Helpdesk: One Line, One Thing {#tip-wrangling-onething}
+
+While it's not always possible, in general, you want each line of code to do one thing and exactly one thing. Sure, breaking it up over several lines as I did in the main text makes your code look longer. But, breaking your code in to clear, single-task steps makes it easier to read, debug, and understand. For example, that last code chunk *could* have been written like this, and it would work just fine:
+
+```{r}
+#| code-fold: false
+#| echo: true
+#| eval: false
+cars04 |> filter(msrp > 75000) |> select(name, msrp) |> arrange(-msrp)
+```
+
+While it would work, in general, you should strive to make your code readable. Keeping the mantra of "one line, one thing" and having each line of code accomplish one task goes a long way toward making your code cleaner and your life easier.
+:::
+
+### Select
+
+The `select()` function is pretty straightforward. It used to select columns-typically, it is used to focus on or remove columns from our data. There are a number of reasons we may want to do this, for example:
+
+-   Simplifying visualizations: Maybe we are creating a table for a presentation, and while the dataset has 40 variables, we only want to include 3 or 4 of the variables in our chart.
+
+-   Sensitive information: There may be personally identifiable information (PII) in a dataset, so if we want to share the data, we need to remove the PII first.
+
+-   Huge datasets: If we have a huge dataset, working with it can be cumbersome for a computer. Eliminating variables we don't need will free up memory. Similarly, email systems may not be able to cope with huge datasets, and online cloud storage is not unlimited, so having streamlined data can be useful. 
+
+The two primary ways `select()` is used is to either, a) choose a specific subset of variables, or b) to choose *all but* a specific subset of variables. To see both of these in action, let's load up the `gapminder` data from the `gapminder` package and check out the first few rows of data.
+
+```{r}
+data(gapminder)
+head(gapminder)
+```
+
+For the first example, let's select only the `country`, `year`, and `gdpPercap` variables:
+
+```{r}
+gapminder |> 
+  select(country, year, gdpPercap) |> 
+  head()
+```
+
+Alternately, we can use the `select()` command to choose everything *but* one or more variables. For this functionality, put a `-` sign before any variables you want to get rid of in your data. Let's get rid of the `continent` and `pop` variables.
+
+```{r}
+gapminder |> 
+  select(-continent,
+         -pop) |> 
+  head()
+```
+
+::: callout-tip
+###### Tip from the Helpdesk: One Line, One Thing, Strikes Again
+
+You may have noticed a subtle difference between the two preceding sets of code: the second one follows the *One Line, One Thing* rule more closely by placing each variable in the `select()` command on its own line.
+
+At first glance, this may seem like overkill. But trust me, as we get into more complicated coding, this syntax will make your code much easier to read, debug, and modify!
+:::
+
+In short, `select()` provides a simple and straightforward way to tailor your dataset to include or exclude specific variables. We will continue to make use of `select()` as we move through the list of essential `dplyr` verbs.
+
+### Filter
+
+Whereas `select()` helps us choose which columns we wanted to have in our dataset, `filter()` is like a sieve for the rows in our dataset-it allows us to keep only the rows that meet specific conditions. Filtering is generally a bit more complex than selecting, because it typically involves the use of logical conditions.
+
+#### Basic Comparitors
+
+The most basic comparitors are the ones you will get the most use out of: `>`,`<`, `>=`,`<=`, `!=`, and `==`. Don't forget, for equals we use `==` instead of `=`!
+
+Let's use a couple of these. First, let's filter the `gapminder` dataset to only include data from 1977:
+
+```{r}
+gapminder |> 
+  filter(year == 1977) 
+```
+
+Note that if we had written `filter(year = 1977)`, the code wouldn't have worked. We would have received an error that says something like: "Error in filter(gapminder, year = 1977) : unused argument (year = 1977)."
+
+Let's use filter to see every country with `gdpPercap` less than or equal to 300.
+
+```{r}
+gapminder |> 
+  filter(gdpPercap <= 300)
+```
+
+#### Factor and Character Variables
+
+When applying a condition to a character variable, you need to wrap the condition in quotation marks.
+
+For example, let's filter the data to only include Canada:
+
+```{r}
+gapminder |> 
+  filter(country == "Canada")
+```
+
+Had we forgotten the quotation marks and entered `filter(country == Canada)`, R would throw an error.
+
+Or, perhaps we want to get rid of Canada from our dataset?
+
+```{r}
+gapminder |> 
+  filter(country != "Canada")
+```
+
+Remember, spelling and capitalization count and R is super strict about it. For instance, the `gapminder` dataset codes North Korea as `Korea, Dem. Rep.`. If we want to filter the data for North Korea, `filter(country == "Korea, Dem. Rep.")` works, but none of the following would as they don't **exactly** match:
+
+-   `filter(country == "Korea, Dem Rep")`
+-   `filter(country == "North Korea")`
+-   `filter(country == "N Korea")`
+-   `filter(country == "korea, dem. rep.")`
+-   `filter(country == "Democratic People's Republic of Korea")`
+
+When working with datasets, It is important to always check for the exact formatting of character variables, as even small discrepancies can cause your code to break in spectacular fashion.
+
+#### Multiple Filters
+
+You can include multiple filters in the same `filter()` command, separated by commas. This is equivalent to a Boolean **AND** condition, meaning that only rows that meet all the specified conditions will be included in the result. Alternately, you can use a Boolean **OR** in a filter with the `|` operator. This means that rows that match *any* of the conditions will be included in the result. Let's see how these work with some examples:
+
+First, let's filter our data to only include European countries in 1952. And since we only have European countries in our data, let's combine this with a `select()` function; since we only have European countries, the `continent` variable is kinda meaningless:
+
+```{r}
+gapminder |> 
+  filter(continent == "Europe",
+         year == 1952) |> 
+  select(-continent)
+```
+
+Because the `filter()` command works sequentially, this is equivalent to the following:
+
+```{r}
+#| eval: false
+gapminder |> 
+  filter(continent == "Europe") |> 
+  filter(year == 1952) |> 
+  select(-continent)
+```
+
+Either option is fine. For me, the more complex the filtering operation, the more I tend to lean toward the second version. For example, working with the Boolean **or** filter is a bit trickier. With an or, we are going to filter not based on whether or not **all** of a set of conditions are true, but rather based on if **any** of a set of conditions are true. For these, you need to include all the possibilities in the same filter argument, and separate the different possible qualifying conditions with a `|`. For example, let's get wrangle our data to get 2007 data for countries in either Oceania or Asia:
+
+```{r}
+gapminder |> 
+  filter(continent == "Asia" | continent== "Oceania") |> 
+  filter(year == 2007)
+```
+
+While the `|` or is powerful, when you have a lot of different possible allowable conditions, the syntax might get cumbersome. For example, if I had a list of 6 countries I wanted to collect in my data, that `filter()` line might get a bit ugly. This is a good place to use a special comparator, the `%in%`. Let's wrangle out the 1992 data for each of the 6 Central American countries in the `gapminder` data (Belize is not in the dataset):
+
+```{r}
+gapminder |> 
+  filter(country %in% c("Costa Rica", 
+                        "El Salvador", 
+                        "Guatemala", 
+                        "Honduras", 
+                        "Nicaragua", 
+                        "Panama")) |> 
+  filter(year == 1992)
+```
+
+In addition to being simpler, the `%in%` syntax is very useful for combining with lists. For example, if I already have a list of Central American countries in a list called `countries`, I can simply use the `%in%` to refer to that list:
+
+```{r}
+countries <- c("Costa Rica",
+               "El Salvador",
+               "Guatemala",
+               "Honduras",
+               "Nicaragua", 
+               "Panama")
+gapminder |> 
+  filter(country %in% countries, 
+         year == 1992)
+```
+
+Finally, another valuable use of filtering is to remove rows with missing values from your data. To see this in action, let's turn to the `cars04` data and look at the results of `summary()` to identify which variables have missing values.
+
+```{r}
+summary(cars04)
+```
+
+It seems that there are some missing values (`NA's`) for a few of the variables: `city_mpg`, `hwy_mpg`, `weight`, `wheel_base`, `length`, and `width`. Missing values can cause errors, so we might want to explore ways to get rid of them. When dealing missing values, `is.na()`, `!is.na()`, and `drop_na()` come in handy. Let's focus on the `hwy_mpg` variable.
+
+We can use `is.na()` to see which rows have a missing value. For example, to see which cars we don't have data on highway MPG for, we type:
+
+```{r}
+cars04 |> 
+  select(name, hwy_mpg) |> 
+  filter(is.na(hwy_mpg))
+```
+
+This shows rows where `hwy_mpg` is missing.
+
+If we wanted to analyze the highway MPG variable, keeping these observation in the dataset is not very helpful, and in fact may cause R to throw errors. This is where we might want to use `!is.na()`, which is the opposite of `is.na()`; it filters rows for which we *do* have data!
+
+```{r}
+cars04 |> 
+  filter(!is.na(hwy_mpg))
+```
+
+Finally, `drop_na()` is like an extreme version of filtering with `!is.na()`. This is a `tidyverse` command that is like a special version of `filter()` that drops any row that has *any* missing values.
+
+```{r}
+cars04 |> 
+  drop_na()
+```
+
+::: callout-tip
+###### Tip from the Helpdesk: Cleaning with a Toothbrush or a Flamethrower?
+
+Be careful with deciding between `filter(!is.na())` and `drop_na()`!
+
+-   `filter(!is.na())` is like cleaning with a toothbrush-precise and targeted but takes more effort.
+-   `drop_na()` is the flamethrower-quick and thorough but risks removing more rows than necessary.
+
+Before you pick your weapon of choice, always explore your data to understand where the missing values are and how much cleaning you actually need! Especially with large datasets, `drop_na()` can be particularly aggressive, so double-check which columns contain missing values before using it.
+:::
+
+
+### Arrange
+
+The `arrange()` function allows us to sort a dataset by one or more particular columns. Arranging is often useful when creating tables, prepping data for visualization, or identifying extreme values.
+
+The default behavior of `arrange()` is to sort numbers from lowest to highest, or strings alphabetically. For example, we can see the cars with the worst gas mileage:
+
+```{r}
+cars04 |> 
+  arrange(city_mpg) |> 
+  select(name, 
+         city_mpg)
+```
+
+Or we can see the cars alphabetically:
+
+```{r}
+cars04 |> 
+  arrange(name) 
+```
+
+We can reverse the order with a `-` sign in front of the sorted variable. Here are the 10 most powerful cars in 2004:
+
+```{r}
+cars04 |> 
+  arrange(-horsepwr) |> 
+  select(name, 
+         horsepwr) |> 
+  slice(1:10)
+```
+
+The `slice(1:10)` line tells R to just show us the first 10 lines of data. 
+
+If we specify multiple variables for the `arrange()`, it will sort by the first variable first, and then "break ties" with the subsequent variables. Here, we arrange by both engine size and horsepower:
+
+```{r}
+cars04 |> 
+  arrange(-eng_size, 
+          -horsepwr) |> 
+  select(name, 
+         eng_size,
+         horsepwr) |> 
+  slice(1:10)
+```
+
+Above, we can see that the cars are arranged by `eng_size` in descending order, and ties in the `eng_size` variable are broken by the second `arrange()` variable, `horsepwr`; the six automobiles with a 6.0 liter engine are arranged from most- to least-powerful. Apparently, some 6.0 liter engines are more equal than others.
+
+::: callout-tip
+###### Data Storytelling: R Crunches Numbers, You Analyze Data
+
+Remember that R has no concept of whether high or low values are "good" or "bad" - that contextual understanding comes from you!
+
+For example, when measuring fuel efficiency:
+- In the US, we use Miles Per Gallon (MPG) where *HIGHER* values indicate better efficiency, but
+- In most other countries, they use Liters per 100 Kilometers (L/100km) where *LOWER* values indicate better efficiency!
+
+If we were to convert our `city_mpg` to the international standard using the `mutate()` function we will learn about in the next section of this chapter:
+
+```{r}
+cars04 |> 
+  mutate(l_per_100k = 235.21/city_mpg) |> 
+  arrange(l_per_100k) |> 
+  select(name, city_mpg, l_per_100k) |> 
+  slice(1:10)
+```
+
+The cars would appear in the same order, but we'd be sorting from lowest to highest L/100km instead of highest to lowest MPG. The story remains the same, but how we tell it changes based on the audience and context.
+
+This reminder applies to all data analysis: GDP, test scores, temperatures - the meaning of "good" or "bad" values comes from your domain knowledge, not from R.
+
+:::
+
+Generally speaking, `arrange()` performs a couple useful tasks. The first is for aesthetics; sorting tables alphabetically or from biggest to smallest in a certain variable adds visual appeal and readability for your audience. The second is for exploring your data and uncovering trends, like identifying the most expensive or least efficient car-or, for example, finding out which car had the most powerful engine in 2004; the `r cars04$name[cars04$eng_size == max(cars04$eng_size)]`.
+
+#### Slice: Where Arrange Meets Filter
+
+Let's take a bit of a deeper dive into the `slice` family of functions, which is what you would get if arrange and filter had an unholy data wrangling baby. There's a whole family of `slice_` functions that elegantly combine the tasks of arranging and filtering:
+
+- `slice_head(n = 5)` grabs the first 5 observations
+- `slice_tail(n = 5)` takes the last 5 observations
+- `slice_min(var, n = 5)` selects the 5 rows with the lowest values of variable `var`
+- `slice_max(var, n = 5)` selects the 5 rows with the highest values of variable `var`
+
+As you can see, `slice_max()` and `slice_min()` combine the tasks of arranging and filtering/slicing into one line!  Let's see a couple examples in action:
+
+The 7 most powerful cars:
+
+```{r}
+cars04 |> 
+  slice_max(horsepwr, n = 7) |> 
+  select(name, horsepwr)
+```
+
+The 9 least expensive cars:
+
+```{r}
+cars04 |> 
+  slice_min(msrp, n = 9) |> 
+  select(name, msrp)
+```
+
+These functions allow you to accomplish in one step what would otherwise require both an arrange() and a slice() or head() function, making your code more concise and readable.
+
+For more flexibility, the original slice() function lets you select any arbitrary positions. Before, I used `slice(1:10)` to grab the first 10 rows of the sorted dataset, but I could have grabbed any arbitrary set of rows.  For example, here are the cars in rows 26-29 of the dataset:
+
+```{r}
+cars04 |> 
+  slice(26:29) |> 
+  select(name)
+```
+
+
+### Mutate
+
+Mutate allows us to create a new column within a dataset or overwrite an existing one. This can be used to rescale variables, change data formatting, or create all-new measures. This one is pretty powerful; we will start with some simple mutates, and work our way up to more complex ones.
+
+Let's start with a simple rescaling. Say, for example, we would prefer to measure our engine size variable `eng_size` in cubic centimeters as opposed to liters. As there are 1,000 ccs in a liter, we can:
+
+```{r}
+cars04 <- cars04 |> 
+  mutate(eng_size_cc = eng_size * 1000)
+
+cars04 |> 
+  select(name, eng_size, eng_size_cc) |> 
+  slice_head(n = 10)
+```
+
+We could have, in principle, overwritten the old variable by specifying `mutate(eng_size = eng_size * 1000)`. However, adding a new column ensures that the original data remains untouched, allowing flexibility for further analysis.
+
+We can also perform calculations with multiple variables. Suppose we want to calculate which car has the largest MSRP markup over dealer invoice in percentage terms? This means we want to calculate:
+
+$$Markup = \frac{MSRP - Dealer \space Cost}{Dealer \space Cost}$$
+
+```{r}
+cars04 <- cars04 |> 
+  mutate(markup = (msrp - dealer_cost)/dealer_cost)
+
+cars04 |> 
+  slice_max(markup, n = 10) |> 
+  select(name, markup) 
+```
+
+Looks like Porsche and Lexus had pretty big markups, between 14% and 17%! Another name for a markup is a profit margin; sometimes math has practical uses!
+
+::: callout-tip
+###### Tip from the Helpdesk: Aunt Sally Who Needs to be Constantly Excused
+
+When using `mutate()` (or any other calculations in R), don’t forget the order of operations-PEMDAS: Parentheses, Exponents, Multiplication/Division (from left to right), and Addition/Subtraction (from left to right). If your math isn’t mathing as expected, double-check your parentheses to ensure everything is grouped the way you want!
+
+For example, compare these two calculations:
+
+```{r}
+#| code-fold: false
+#| echo: true
+
+cars04 |> 
+  mutate(markup = (msrp - dealer_cost)/dealer_cost) |> 
+  mutate(markup2 = msrp - dealer_cost/dealer_cost) |> 
+  select(name, msrp, dealer_cost, markup, markup2) |> 
+  slice_max(markup, n = 10)
+```
+
+The first calculation is the same as I did in the text, so it correctly calculates:
+
+$$Markup = \frac{MSRP - Dealer \space Cost}{Dealer \space Cost}$$
+
+The second calculation ignores the fact that PEMDAS exists, and will result in R prioritizing division over subtraction because there no parentheses in the numerator. Thus, the second markup equation calculation will calculate:
+
+$$Markup = MSRP -\frac{Dealer \space Cost}{Dealer \space Cost}$$
+
+So while the first calculation accurately calculates the dealer profit margin, the second one simplifies to:
+
+$Markup = MSRP - 1$
+
+Clearly, not what I am going for!
+
+The big takeaway here: Aunt Sally is your best friend when working with equations in R. You can't afford to forget PEMDAS! A little extra care upfront saves you from incorrect calculations-and major headaches-later on!
+:::
+
+Let's ramp this up a bit.  We will use `mutate()` to do something a bit more sophisticated and make a new variable that denotes whether or not a car is domestic (to the US market) or foreign. Looking at the `name` variable, it seems that the vehicle name always starts with the make as the first word, and the model and trim line after that. We can exploit this pattern! We will proceed in two steps. 
+
+-   First, we will use the `word()` command out of the `stringr` package [@stringr]-`stringr` is part of the `tidyverse` and is useful for working with character (sometimes called string) variables-to create a variable that has the car make.
+-   Second, we will use the new car make variable to identify foreign vs. domestic cars, and create a new variable from that.
+
+Let's start by creating a new variable called `make` which is the first word in the `name` variable:
+
+```{r}
+cars04 <- cars04 |> 
+  mutate(make = word(name, 1))
+```
+
+After doing something like this, it is useful to double-check that we got the results we want:
+
+```{r}
+cars04 |> 
+  select(name, make) |> 
+  slice(1:10)
+```
+
+So far, so good.  Let's take a deeper look by using the the `distinct()` command; `distinct()` is a special kind of `filter()` that drops any rows that are identical to other rows in the data. So the combination of `select(make)` followed by `distinct()` will give me a list of every `make` in the data! 
+
+```{r}
+cars04 |> 
+  select(make) |> 
+  distinct() |> 
+  arrange(make)
+```
+
+Looking at just this sample, we can already spot two likely typos: "CMC" and "Chrvsler". The complete list contains 42 unique makes that we ought to scrutinize. It's always a good idea to doublecheck your work along the way, and the fact that we've already found something fishy suggests that we are likely to find more issues.  
+
+Remember the earlier tip about *R Crunches Numbers, You Analyze Data?* This is a perfect example-R has no idea that these entries are errors. It's our knowledge of the real world from which these data come that allows us to identify these inconsistencies.
+
+If you are working through this example in R yourself, I encourage you to look through the 42 makes we created to look for other issues.  I'm going to filter for the values that seem suspicious to me:
+
+```{r}
+cars04 |> 
+  filter(make %in% c("CMC", "Chrvsler", "Mazda3", "Mazda6", "Land")) |> 
+  select(name, make)
+```
+
+It certainly would seem that:
+
+-   CMC should say GMC
+-   Chrvsler should say Chrysler
+-   The two Mazda variants should simply be Mazdas.
+-   Land should be Land Rover
+
+As our goal is to create a foreign/domestic variable, we can either:
+
+-   Fix the errors in the original data,
+-   Change the way we construct the `make` variable, or
+-   Work around the errors.  
+
+Let's change our `make` variable, as it is generally preferable to *not* edit original data.  We will make use of a couple new functiions, `mutate()` and `case_when()`.  
+
+```{r}
+cars04 <- cars04 |> 
+  mutate(make = case_when(
+    make == "Chrvsler" ~ "Chrysler",
+    make == "CMC" ~ "GMC",
+    make == "Mazda3" ~ "Mazda",
+    make == "Mazda6" ~ "Mazda",
+    make == "Land" ~ "Land Rover",
+    TRUE ~ make
+  ))
+```
+
+
+This is probably the trickiest line of code we've encountered so far, so let's break it down a bit.  This code corrects typos and standardizes values in the make column of the `cars04` dataset using the `case_when()` function within `mutate()`. It evaluates each row in the make column and applies specific replacements based on defined conditions. For example, if a row contains `"Chrvsler"`, it is replaced with `"Chrysler"`, while `"CMC"` is corrected to `"GMC"`. Similarly, rows with `"Mazda3"` or `"Mazda6"` are standardized to `"Mazda"`. Any value not explicitly matched by these conditions is left unchanged, thanks to the `TRUE ~ make` clause at the end, which acts as a catch-all to preserve unmatched values. Basically, how this line works is that if R looks the value of `make` in a line and doesn't see one of the values we are looking for, but it does see *something* (e.g. it is `TRUE` that `make` has a value), then it will replace the value of `make` with what is already there!
+
+We can double-check our `make` variable to make sure we got the result we wanted:
+
+```{r}
+cars04 |> 
+  select(make) |> 
+  distinct() |> 
+  arrange(make)
+```
+
+This looks fixed! 
+
+Now that we have our `make` variable, we can create a list of brands that are domestic and create our new variable:
+
+```{r}
+domestic_cars <- c("GMC",
+                   "Chevrolet", 
+                   "Ford", 
+                   "Saturn", 
+                   "Dodge", 
+                   "Jeep", 
+                   "Pontiac", 
+                   "Buick",
+                   "Chrysler",
+                   "Oldsmobile", 
+                   "Lincoln",
+                   "Cadillac", 
+                   "Mercury", 
+                   "Hummer")
+
+# If above, I instead opted to work around the errors, I could have included "CMC" and "Chrvsler" in this list
+
+cars04 <- cars04 |> 
+  mutate(origin = if_else(make %in% domestic_cars, "Domestic", "Foreign"))
+```
+
+In this code, we start by creating a list called `domestic_cars` that are all the brands in the dataset that were GM, Ford, or Chrysler makes back in 2004.  Then, we use  the `if_else()` function to create our `origin` variable; `if_else()` looks to see if the make of each car is included in the list of `domestic_cars`, and if it is it returns the first value, and if not it returns the second value. 
+
+In this case, for a car make like "Chevrolet", when R checks if "Chevrolet" is in the `domestic_cars` list and finds that it is, R will assign "Domestic" to the origin variable for that row. On the other hand, consider a car make like "Toyota". R will check to see if "Toyota" is in the `domestic_cars` list. Nope! Therefore, R assigns "Foreign" to the origin variable for that row.
+
+Again, we should double-check to see if this worked correctly:
+
+```{r}
+cars04 |> 
+  select(make, origin) |> 
+  distinct()
+```
+
+And there we go, it looks like we nailed it! This example took us through a complete data wrangling workflow - from identifying problems, to investigating them, to implementing a solution, and finally verifying our results. While it was certainly more complex than our earlier examples, this complexity mirrors real-world data challenges. By combining multiple tidyverse functions like `mutate()`, `case_when()`, `distinct()`, and `if_else()`, we've demonstrated how these tools work together to transform messy data into structured, useful information. The thought process we followed here - carefully examining data, making decisions based on domain knowledge, implementing changes step by step, and verifying results - is the essence of effective data wrangling.
+
+### Summarize
+
+The `summarize()` function is used to collapse a dataset into a smaller dataset of summary statistics.  To get our heads around the basics of summarize, let's use it to create some summary statistics of our `cars04` data.  
+
+First, what are some common things we want to get summary statistics of.  Measures of central tendency, range, sums, counts, things like that. Here is a short list of the functions I most commonly nest inside of `summarize()`:
+
+- Central Tendency: `mean()`, `median()`, `weighted.mean()`
+- Spread: `sd()`
+- Range: `max()`, `min()`
+- Count: `n()`, `n_distinct()`
+
+Let's use some of these functions to summarize the cars04() dataset.  The general syntax of `summarize()` is `summarize(new_var = function)`, so let's create some summary statistics:
+
+```{r}
+cars04 |> 
+  summarize(makes = n_distinct(make),
+            count = n(),
+            avg_hp = mean(horsepwr),
+            avg_mpg = mean(city_mpg))
+```
+
+So we can see that there are 38 different makes of cars in the dataset, 428 different cars in total, an average horsepower of `r round(mean(cars04$horsepwr),2)`, but I see a problem with the avg_mpg function -- it is spitting out an `NA`!  This is happening because there are some cars for which we do not have data on their fuel efficiency:
+
+```{r}
+cars04 |> 
+  filter(is.na(city_mpg)) |> 
+  select(name, city_mpg)
+```
+
+To work around this, we will add the `na.rm = TRUE` option to our mean function.  
+
+```{r}
+cars04 |> 
+  summarize(makes = n_distinct(make),
+            count = n(),
+            avg_hp = mean(horsepwr),
+            avg_mpg = mean(city_mpg, na.rm = TRUE))
+```
+
+In general, if you get an `NA` response to a numerical function that you think should work, `NA`'s in the dataset are often the culprit!
+
+Admittedly, `summarize()` is only moderately useful on its own.  But when you combine it with grouping techniques (next subsection), it goes hard. So let's jump right into that.  
+
+### Group_by and Ungroup
+
+The `group_by()` function allows us to create virtual splits of a dataset by segmenting it into multiple smaller data sets. It is typically used in conjunction with other `dplyr` commands to execute functions on each data segment, most typically `summarize()` and `mutate()`.  Depending on what you do with the subsetted data, you may need to `ungroup()` to remove the grouping effect. I admit that this description may seem a bit abstract, so let's do a few practical examples, starting with some simple ones and working up to more complicated ones, to see just how powerful `group_by()` can be.
+
+Consider our modified `cars04` dataset in which we constructed the `make` variable above. Let's say we want to get a sense of which car brands tend to be expensive and which tend to be less expensive.  One way to accomplish this would be to calculate the `mean()` of `msrp` for each value of `make`, which is easily done with the following code:
+
+```{r}
+cars04 |> 
+  group_by(make) |> 
+  summarize(mean_msrp = mean(msrp)) |> 
+  arrange(-mean_msrp) 
+```
+
+Pretty slick for 4 lines of code, eh?  Let's think through what the code is doing.  We start by piping `cars04` into the `group_by()` function; the way I conceptualize this is that we are taking the dataset of 428 cars and virtually breaking it up into 38 separate datasets.  Anything that happens next will be done to every single one of those datasets individually.  The next line is to `summarize()`, which means R is going to make a new data set out of whatever commands we put in the summarize.  As the summary we want is `mean(msrp)`, R is going to go through each of the 38 datasets, one for each car make, and calculate `mean(msrp)` in each and every single one of them. The result will be a new variable called `mean_msrp` which contains the average for each `make`.  The `make` variable also winds up in the new data set, so we know average mean comes from which `make`. The final line is optional-I just was curious which `make` would come out on top!
+
+By combining `group_by()` and `summarize()` we have the ability to create a highly customizable table of summary statistics for our data.  Let's add a bit onto this code, just to stretch our legs a bit:
+
+```{r}
+cars04 |> 
+  group_by(make) |> 
+  summarize(mean_msrp = mean(msrp),
+            most_expensive = max(msrp),
+            least_expensive = min(msrp),
+            models = n(),
+            domestic = first(origin)) |> 
+  arrange(-mean_msrp) 
+```
+
+Now, in addition to including the `mean()` of MSRP, we have included the maximum and minimum, along with the total number of car styles from each manufacturer in the data set.  We also did something a little fancy with the last line of code; I wanted to include the foreign/domestic designation in my results, but `summarize()` requires a function. Since I know that the value for `origin` is constant within each `make` (e.g. all Hondas are foreign, all Fords are domestic), I just grabbed the `first()` value!
+
+In addition to `summarize()`, `mutate()` is also a really useful function to use with `group_by()`. Let's say we are curious as to which cars are the most fuel efficient given their body type. In other words, while we expect sports cars and SUVs to have worse MPG than sedans, we may be interested in knowing which sports cars and SUVs have the best fuel efficiency.  To start, let's use `case_when()` in a similar way to above to turn the logical variables of `sports_car`, `suv`, and so forth into a single variable called `bodystyle`.
+
+```{r}
+cars04 <- cars04 |> 
+  mutate(bodystyle = case_when(
+    sports_car == TRUE ~ "sports car",
+    suv == TRUE ~ "suv",
+    wagon == TRUE ~ "wagon",
+    minivan == TRUE ~ "minivan",
+    pickup == TRUE ~ "pickup",
+    TRUE ~ "sedan"
+  ))
+```
+
+This code works in a very similar way to the code above when we cleaned up the `make` variable.  Now, we want to take our data and `group_by(bodystyle)` and look for cars with `city_mpg` that is at least 25% higher than the average:
+
+```{r}
+cars04 <- cars04 |> 
+  group_by(bodystyle) |> 
+  mutate(avg_mpg = mean(city_mpg, na.rm = TRUE)) |> 
+  mutate(rel_mpg = city_mpg/avg_mpg) |> 
+  mutate(efficient = case_when(
+    rel_mpg > 1.25 ~ "efficient",
+    rel_mpg < 0.75 ~ "gas guzzler",
+    TRUE ~ "neither")) |> 
+  ungroup() 
+```
+
+Before taking a look at the results, let's break down this code. 
+
+-   First, `group_by(bodystyle)` splits our data into separate groups - one for each body style. This means whatever we do next happens separately for sedans, SUVs, sports cars, and so on.
+
+-   Next, we create a new variable `avg_mpg` that calculates the average city MPG for each body style. The `na.rm = TRUE` part tells R to ignore any missing values when calculating these averages. Without this, a single NA would ruin our calculations! I know this because my first draft of this code forgot about this and I was baffled by my lack of results.  
+
+-   Then we create `rel_mpg` by dividing each car's MPG by the average for its body style. This gives us a ratio where 1.0 means "exactly average for its class," 1.5 means "50% better than average," and 0.5 means "half as efficient as average."
+
+-   After that, we use `case_when()` to label each car based on this ratio. Cars that are at least 25% more efficient than their class average get labeled "efficient," while cars that are at least 25% less efficient get the unfortunate "gas guzzler" label, though I suspect that Hummer owners view that as a badge of honor! Everything in between is "neither."
+
+-   Finally, we `ungroup()` to remove the grouping structure
+
+The neat thing about this approach is that we're comparing apples to apples. A Honda Civic might be more fuel-efficient than any SUV in absolute terms, but that's not a fair comparison. This way, we can identify the most efficient vehicles within each category.
+
+::: callout-tip
+###### Tip from the Helpdesk: The Danger of Groupthink
+
+Why am I ungrouping here but not before? It's because before I was using `summarize()`, but now I'm using `mutate()`. This is an important distinction!
+
+When you use `summarize()` with a grouped dataset, R automatically removes one level of grouping for you after it creates the summary. This makes sense - if you're calculating averages by make, your new dataset is already at the make level, so the grouping has done its job.
+
+But `mutate()` is sneaky - it doesn't touch your grouping at all! It adds new columns while keeping all your rows and maintaining whatever groups you created. If you forget to `ungroup()` after using `mutate()`, any calculations you do later will still respect that grouping, which can lead to some pretty confusing results.
+
+I've been burned by this more times than I care to admit. I'll be looking at your results thinking "what the heck is going on here?!" only to realize I'm still grouped from five steps ago.
+
+Bottom line: After using `group_by()` with `mutate()`, add an `ungroup()` at the end unless you specifically want to keep working with those groups. Your future self will thank you!
+:::
+
+Now that we've done the work, let's take a look.  Which cars are fuel efficient for their bodystyle, which are the gas guzzlers? 
+
+```{r}
+cars04 |> 
+  select(name, bodystyle, city_mpg, avg_mpg, rel_mpg, efficient) |> 
+  filter(efficient == "efficient")
+```
+
+```{r}
+cars04 |> 
+  select(name, bodystyle, city_mpg, avg_mpg, rel_mpg, efficient) |> 
+  filter(efficient == "gas guzzler")
+```
+
+## Wrapping Up
+
+The focus of this chapter was twofold - you should have learned how to get data into R, and some of the basics of data manipulation and data wrangling using the tidyverse suite of functions.  
+
+Throughout this chapter, we've relied heavily on the tidyverse, and for good reason. Though strictly speaking, much of what we've discussed in this section can be done via Base R as well, most people coding in the R world use the `tidyverse` for data wrangling. In general, the `tidyverse` family of packages has an internal logic that better vibes with how humans think because the code is written roughly in the same order as the actions being performed.
+
+To show you what I mean, here are two code snippets that both do the exact same thing-they calculate the weighted mean of GDP per capita by continent in 2007 in the `gapminder` dataset. First, the `tidyverse` version:
+
+```{r}
+#| code-fold: false
+#| echo: true
+gapminder |> 
+  filter(year == 2007) |> 
+  group_by(continent) |> 
+  summarize(gdp = weighted.mean(gdpPercap, w = pop))   
+```
+
+This uses the typical tidyverse thought process:
+
+-   Pipe the data in
+-   Filter the data for the relevant year
+-   Split the data into subgroups by continent
+-   Summarize the data with the statistic you want
+
+Now, compare this to what I think is likely the simplest Base R method:
+
+```{r}
+#| code-fold: false
+#| echo: true
+
+gap_07 <- gapminder[gapminder$year == 2007, ]
+result <- data.frame(continent = character(), gdp = numeric(), stringsAsFactors = FALSE)
+continents <- unique(gap_07$continent)
+for (cont in continents) {
+  subset_data <- gap_07[gap_07$continent == cont, ]
+  weighted_gdp <- weighted.mean(subset_data$gdpPercap, subset_data$pop)
+  result <- rbind(result, data.frame(continent = cont, gdp = weighted_gdp))
+}
+
+result
+
+```
+
+Here's the basic logic of the above code:
+
+-   Line 1 filters the data to the relevant year.
+-   Line 2 initializes an empty data frame where the results will be stored.
+-   Line 3 creates a list of each of the continents in the dataset.
+-   Lines 4-8 loop over the continents in the list created in Line 3, so the following steps are performed 5 times, once for each continent.
+    -   Line 4 initializes what is being looped over.
+    -   Line 5 subsets the data subset for that continent.
+    -   Line 6 calculates the weighted mean for the continent.
+    -   Line 7 adds the continent name and weighted mean that was just calculated to the data frame created in Line 2.
+    -   Line 8 closes the loop.
+-   Line 9 prints the results.
+
+This frankly makes my brain hurt. The tidyverse accomplishes this in a logical sequence-`filter()`, `group_by()`, `summarize()`, `select()`. With Base R, you’re juggling data subsets, loops, and manual assignment. While both work, one is clearly more intuitive for everyday data analysis.
+
+By now, you should have a solid foundation in importing data and using tidyverse tools like `select()`, `filter()`, `mutate()`, `group_by()`, and `summarize()` to begin exploring and manipulating datasets. In the next chapters, we'll build on these skills to perform more sophisticated analyses.
+
+
+## End of Chapter Exercises
+
+**Cars Data**
+
+1.  Country of Origin Classification: Using the cars04 dataset and following the approach we used to classify cars as foreign or domestic, create a new variable that identifies the country of origin for each car. Classify cars into major automobile producing countries: US, Japan, Germany, South Korea, Italy, Sweden, UK, etc. Then create a summary table showing the average price, fuel efficiency, and horsepower by country of origin.
+
+2. Price Efficiency by Body Style: Similar to how we identified fuel-efficient cars within each body style, identify which cars are the best value in their category. Create a new variable that compares each car's price to the average price for its body style. Classify cars as "bargain" (at least 25% below average price), "premium" (at least 25% above average price), or "average". Which cars offer the most features or performance for below-average prices in their category?
+
+3.  Car Market Segmentation: Using the cars04 dataset, create a new categorical variable that classifies cars into market segments based on both price and body style (e.g., "Budget Sedan", "Luxury SUV", "Mid-range Sports Car"). Then provide summary statistics for each segment, including the number of models, average price, and average fuel efficiency.
+
+4.  Rethinking Fuel Efficiency: Consider the results of the analysis above where we identified the gas guzzlers.  Based on these most recent results -- if you were to answer the question of which car in the `cars04` dataset is the least fuel efficient, which one would you pick?  Is it the Hummer, with its whopping 10 MPG?  Or is a better case to be made for the Mercedes-Benz CL600 2dr, which is tied with about a dozen other cars in the dataset for 4th worst? Or something else?  There is no right answer here - what's more important is how you think through this question. 
+
+**Gapminder Data**
+
+5. Population Distribution: Using the gapminder dataset, calculate what percentage of the world's population lived on each continent for each of the years in the dataset. Create a summary showing how these percentages have shifted over time from 1952 to 2007.
+
+6. Demographic Shifts: Using the gapminder dataset, calculate the ratio of GDP per capita between the richest and poorest countries in each continent for each time period. Has global inequality increased or decreased within each continent between 1952 and 2007?
+
+7. Economic Growth: Using the gapminder dataset, identify which countries experienced the greatest economic growth between 1952 and 2007. Calculate the percentage increase in GDP per capita for each country over this period, and display the top 15 countries with the highest growth rates. Include their starting and ending GDP values, and their continent.

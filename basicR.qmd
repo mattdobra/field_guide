@@ -1,0 +1,688 @@
+# R and RStudio {#sec-basicR}
+
+The focus of this chapter is to introduce the computer program R and its companion environment, RStudio. This chapter assumes that this is your first experience with programming/coding of any kind, so we will begin with some very basic questions: what are R and RStudio, how do you get them, and how do you install them?
+
+After guiding you through the installation of R and RStudio, we’ll take a brief tour of RStudio, highlighting key options and setup choices to help improve your experience and workflow. Finally, the chapter will close with an introduction to some essential features and conventions in R, providing a foundation for everything to come.
+
+## The Basics
+
+Let's start with the basics. R is an open source programming and scripting language widely used for statistical analysis. While it is a core tool in econometrics, it has tons of other applications beyond econometrics as well. It is a commonly used program in any academic discipline that relies upon statistical analysis, so researchers across the social sciences (economics, sociology, psychology, etc.) and physical sciences (epidemiology, biology, meteorology, etc.) rely on R for data analysis. Moreover, there is an increasing use of R for data visualization and analytics, making R popular in the business world for tasks like marketing analytics, business analytics, data mining, financial and research analysis, data journalism, actuarial science, and more. In short, R is highly versatile, widely applicable, and growing in demand.
+
+While the focus of this text is on using R for econometrics, the fundamental methods of econometrics–particularly OLS, logit, and time series analysis–are the fundamental methods of nearly all fields utilizing R as well. Of course, R is not the only program out there that are capable of data analysis and visualization. In the world of economics, the more commonly used software packages include SAS, SPSS, Stata, and to lesser extents economists utilize programs like Eviews, Matlab, Python, and even Microsoft Excel.
+
+Overall, R stands out as likely the most widely used tool across disciplines, which adds to its overall usefulness.
+
+Pros of R:
+
+-   Free and open source-no cost to use!
+-   Powerful and extensible-thousands of community-created packages.
+-   Purpose-built for statistics-ideal for econometrics and data analysis.
+-   Widely adopted and growing-it’s *probably* here to stay.
+-   Strong online community-extensive help, resources, and forums available.
+-   Reproducible research-tools like Quarto allow you to seamlessly integrate code, analysis, and reporting.
+-   Cross-platform compatibility-works on Windows, Mac, and Linux with no issues.
+
+Some Cons of R:
+
+-   Steep learning curve-it can be challenging for beginners.
+-   Package overload-difficult to keep track of the many packages and their updates.
+-   Inconsistent syntax-coding style and conventions can vary widely between packages, creating confusion.
+-   Mediocre in-program help-some built-in documentation is hit-or-miss.
+-   GUI-phobic-If you are are point-and-click person, R will be tough to get used to.
+
+While R is both the name of the program and the name of the coding language, it is not typically used on its own. Typically, R is nested inside of another program called RStudio. RStudio is an IDE (Integrated Development Environment)–a fancy term for an app that makes programming a lot easier because it helps keep track of everything you are working on in one place.
+
+RStudio provides a comprehensive set of tools for writing, testing, debugging, and running code in a single enviroment. It offers useful features like color coding and auto-formatting to aid in the process of writing and debugging code, auto-completion for commands and variables that are already loaded into the programming environment, tools to help you keep track of mismatched parenthesis and quotation marks, etc. Coding in R is way easier and more efficient when done within RStudio. The best part? Both R and RStudio are **free** and work in Windows, Mac, or Linux systems.
+
+At this point, if you have not yet installed these pieces of software, you should do so.
+
+1.  Install [R](https://cran.r-project.org/)
+2.  Install [RStudio](https://www.posit.com)
+3.  Profit
+
+Go ahead and do it now; I'll wait!
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| out-width: 50%
+
+knitr::include_graphics("images/waiting.jpg")
+```
+
+::: callout-tip
+###### Tip from the Helpdesk: First Things First - Installation Order Matters!
+
+Always install R before RStudio-it saves you a lot of headaches!
+
+This means you need to:
+
+1.  Download R: Head to [CRAN](https://cran.r-project.org/) and grab the latest version for your operating system.
+2.  Find the installer: Search your downloads folder for the R installer file.
+3.  Run the installer: Double-click the file and follow the installation prompts. You will know you are done when the installation finishes and you see a message confirming that R has been successfully installed. If it opens the R file, go ahead and close it–this step is complete, and you will likely never run R outside of RStudio.
+4.  Install RStudio: Once R is installed, download and install RStudio from [Posit's website](https://posit.co/). You may need to click on "Open Source" in the ribbon at the top and choose "RStudio IDE," or use this [direct link](https://posit.co/products/open-source/rstudio/). Go to your downloads folder, double-click the RStudio installer file, and follow the prompts to complete the installation.
+5.  Open RStudio: After installation, open RStudio. It should automatically detect your R installation and get you ready to start coding. Again, you likely will never need to open R directly–RStudio is where all the magic happens!
+
+If you encounter any issues, you may find it useful to head over to [YouTube](http://www.youtube.com) and search for an installation walkthrough.
+:::
+
+## A Tour of RStudio
+
+Let's start with a brief overview of the RStudio environment. The basic layout of Rstudio has 4 panes:
+
+```{r}
+#| out.width: "100%"
+#| echo: false
+
+knitr::include_graphics("images/rstudiopanes.png")
+```
+
+*Note: The layout in the image may look slightly different from RStudio’s default setup, but the differences are minor.*
+
+::: callout-tip
+
+###### Tip from the Helpdesk: Pane Management
+
+If you don't see four panes, don't worry! You can easily get them to show up with the keyboard code Ctrl + Alt + Shift + 0 (Cmd + Alt + Shift + 0 on a Mac), or via the menu bar by clicking View $\rightarrow$ Panes $\rightarrow$ Show All Panes.
+
+That said, it's sometimes useful to minimize one or more of your panes. When writing this book, for example, I typically only have the Editor Pane and the Viewer Pane visible!
+:::
+
+### Bottom Left: The Console Pane
+
+The console pane is where R lives. You can use R interactively here by typing commands directly into the console. When you hit Enter, the results are processed immediately. R is a command-line interpreter, meaning it evaluates one command at a time as you type it.
+
+However, most of your work will rely on scripts-sets of commands saved in a file that are executed when you tell R to run them. Scripts ensure your work is reproducible and organized. A typical R session will include both interactive commands (quick tests, checks) and scripted work for larger tasks. Scripts are housed in the editor pane.
+
+### Top Left: The Editor Pane
+
+This is where you will spend most of your time in RStudio. This is where you write and save your scripts, which are sets of R commands that RStudio can execute sequentially. You can run a whole script through the console pane at once with the run button, or you can send one line at a time to the console pane by selecting a line (or lines) by highlighting them with your mouse and typing Ctrl-Enter (Cmd-Enter on Mac). Unlike typing directly into the console, scripts allow you to save your work, test code in sections, and reproduce your results later. You can have multiple scripts or files open at once, each in its own tab, allowing you to switch between tasks easily.
+
+::: callout-tip
+###### Tip from the Helpdesk: Files Don't Save Themselves
+
+If you see an asterisk (\*) next to the name of a file on its tab, it means the file has unsaved changes. Saving is like voting in Chicago; one should do it early and often! Frequent saving will help you avoid losing your work! You can save a file by clicking the Save icon or using the shortcut Ctrl + S (Windows) or Cmd + S (Mac).
+:::
+
+If you’re working with datasets loaded into memory, you can take a peek at them in a spreadsheet-style view in the editor pane. This feature is helpful for quickly inspecting your data and ensuring it looks as expected. One way to do this is by using the `View()` command in the console pane. For example, if you have a data frame called `mydata`, typing `View(mydata)` in the console will display the dataset in the editor window. Keep in mind, this viewer is not a proper spreadsheet-you can’t manually edit the data here. It’s purely for exploration and inspection.
+
+RStudio also provides smart formatting in the editor pane to make scripting easier, including:
+
+-   Color coding: Functions, variables, strings, and comments are visually distinct.
+-   Bracket matching: Highlighted parentheses, braces, and brackets make it easier to spot mismatches.
+-   Indentation: RStudio automatically aligns code blocks for better readability.
+-   Code folding: Collapsible sections of code let you focus on specific parts of your script.
+
+### Top Right: The Environment Pane
+
+The environment pane (top right) shows all the objects and variables currently loaded into memory. This includes datasets, lists and vectors, functions, and any other objects you create during your R session. For example, if you load a dataset, its name will appear in this pane along with information about its size and structure.
+
+One particularly useful feature is the ability to click on a data frame to open it in a spreadsheet-style view in the editor pane, making it easy to examine your data visually–basically a shortcut for the `View()` command discussed above. You can also see summaries of objects (like the dimensions of a dataset or the class of an object) without needing to type additional commands.
+
+The environment pane also includes buttons and tools for managing your workspace:
+
+-   Search Bar: Quickly locate specific objects in memory, which is especially useful when working with many variables.
+-   Clear Workspace: The broom button will remove all objects from memory to start fresh (though use this with caution!).
+-   Import Dataset Button: Launches a wizard to import data from external files (e.g. CSV, Excel). This is a beginner-friendly way to learn how to load data into R.
+-   List View vs. Grid View: Toggle between a detailed list of objects and a more compact grid format.
+
+Additionally, the environment pane interacts with RStudio projects, which we will talk about later, displaying the workspace associated with your current project. This ensures your work remains organized and makes it easy to pick up where you left off.
+
+Think of the environment pane as your workspace dashboard. It gives you a clear view of everything you've created or loaded into R during your session, helping you keep track of your data and variables as you work.
+
+### Bottom Right: The Utility Pane
+
+The bottom right pane in RStudio is versatile and ultimately houses a bunch of useful stuff that doesn't really fit with the vibe of the other panes. It's kinda like a super organized junk drawer. The most commonly used tabs include:
+
+-   Files: Browse your project’s folder structure directly within RStudio. You can navigate to files, open scripts or datasets, and create new folders or files as needed.
+-   Plots: View graphs and visualizations generated by your code. If you create multiple plots, RStudio allows you to scroll through them using the arrows in this tab. You can also export plots as image files (e.g., PNG or PDF) for use in reports or presentations.
+-   Packages: Manage the R packages installed on your system. Packages are add-ons that extend R’s functionality, providing specialized tools for specific tasks. You don’t need to worry about the details yet, we’ll cover packages and how to use them later in this chapter.
+-   Help: Access R’s built-in documentation. When you run a help command (e.g., `?lm`), the output will appear here. You can also search manually for functions, commands, or packages using the search bar.
+-   Viewer: Used for displaying HTML outputs or other rendered content. In the Chapter on Literate Programming, [@sec-litprog], you’ll see how this tab becomes important for viewing rendered reports or interactive documents.
+
+The flexibility of the utility pane ensures that you can quickly access the tools you need while working, whether that’s managing files, visualizing data, installing packages, or seeking help with R functions.
+
+### Menu Bar
+
+The menu bar is the last stop on our tour of the RStudio environment. It contains options and commands typical of menu bars for most programs–options like *File*, *Edit*, *View*, *Help*, etc. At some point you may want to look through these to see what RStudio is capable of, but for now, here are a few useful things to highlight.
+
+-   *Code Menu*: Ensure the following 3 items are toggled on as they make reading and debugging your code easier.
+    -   Soft Wrap Long Lines: without this, long lines of code will have you scrolling horizontally for days!
+    -   Rainbow Parentheses and Rainbow Fenced Divs: These options color match parentheses in different colors, making it much easier to see which opening parenthesis goes with which closing one. When your code gets complex with nested functions, this visual aid can save you from the frustration of hunting down mismatched parentheses.
+-   *View Menu* $\rightarrow$ *Panes*: Here you can find an option to *Show All Panes*. This is useful for situations where you accidentally close one of your four panes and want them back.
+-   *Help Menu* $\rightarrow$ *Cheatsheets*: RStudio provides a ton of coding cheatsheets that are incredibly useful for when you are trying to figure out how to do things. You can find a more comprehensive list of cheatsheets at <https://rstudio.com/resources/cheatsheets/>. Cheatsheets are designed to be printed out on a single double-sided sheet of paper and kept handy while working–you may find this especially valuable while learning new packages.
+-   *Help Menu* $\rightarrow$ *Keyboard Shortcuts Help*: As you code, you’ll find that many repetitive tasks can be done more quickly and easily using keyboard shortcuts. RStudio provides this list of such shortcuts. At this point, looking at that list may be a bit daunting, but after you've become a bit more accustomed to using R, take a look at the list of keyboard shortcuts. You will likely find a few that you will soon view as indispensable. Here are the three I use the most:
+    -   Ctrl + Shift + M: This shortcut creates the pipe operator, `|>`, which will be introduced in @sec-wrangling on Data Wrangling.
+    -   Ctrl + Alt + I: This key combination will create a new code chunk in Quarto, which we will discuss in @sec-litprog Literate Programming.
+    -   Ctrl + Shift + C: converts a line of script into a comment, useful for documenting scripts or temporarily ignoring lines when debugging code. More on this later this chapter.
+-   *Tools Menu* $\rightarrow$ *Global Options*: This opens an options window with a variety of settings to customize RStudio. While most of the defaults are fine for you to start with, there are a few useful things to check out in here.
+    -   *General Tab*: There is the option to set a *Default working directory (when not in a project)*.  Your working directory is simply the folder on your computer where R will look for files by default and where it will save output unless told otherwise. It's like R's "home base" on your computer. You should check out the Tip from the Helpdesk on RStudio Projects below, but I'd strongly suggest configuring this option right away. If, for example, you are using R as part of a class, create a folder on your hard drive for that class and set that folder as your working directory for R. Or, if you are simply teaching yourself R for fun, create a folder for learning R and set that as a working directory. 
+    -   *Code Tab*: Ensure that *Use native pipe operator, \|\>* is ticked.
+    -   *Appearance Tab*: Here, you can set the theme of RStudio. If you want a dark theme, make sure you change the theme to "Modern" or "Sky". I would suggest choosing a theme that has a lot of contrasting colors to make reading your code easier. You want the five colors of text in the sample display window to "pop," because The different colors in the editor help you identify various parts of your code at a glance.  I typically use Tomorrow Night Bright, but I also quite like Ambiance, Chaos, Cobalt, and Vibrant Ink.
+    -   *Packages Tab*: This enables you to determine where R looks to download packages–the community-developed functions and programs that greatly extend R's power. For the most part you want to ensure that the *Primary CRAN repository* is set to *Global (CDN) - RStudio*. If, however, you find yourself unable to install any packages, you will want to come back here and change your repository, likely to the repository closest to you geographically.
+
+::: callout-tip
+###### Tip from the Helpdesk: Projects: the Bento Boxes of R
+
+Just as a bento box keeps your sushi separate from your tempura, RStudio Projects keep your different coding tasks neatly compartmentalized. Each project has its own workspace, history, and working directory, so your econometrics homework won't mix with your data analysis for work. While you might not need projects yet as you’re just learning R, they become invaluable when you're managing multiple research projects or juggling different clients at work.
+
+To create a project:
+
+1. Go to File $\rightarrow$ New Project...
+2. Choose to create either a new folder or use an existing one
+3. Give your project a name that helps you remember what it's for
+
+When you open a project, RStudio automatically puts you in the right folder and loads the files you had open the last time you were working on the project...no more hunting around your computer for that script you were working on last week!
+
+For this book, consider creating a dedicated project called "Learning R" or "Econometrics" to keep all your practice work organized in one place.
+:::
+
+## R Essentials
+
+With our whirlwind tour of RStudio out of the way, it's time to get our hands dirty and start using R. For now, we have two choices for how we use R (we will explore a third option in @sec-litprog Literate Programming). We can either:
+
+1.  Type code directly into the console window (bottom left), or
+2.  Create an R Script by using *File* $\rightarrow$ *New File* $\rightarrow$ *R Script*, enter our code into the script, and then manually run the lines from the script.
+
+While it sounds like option 1 is simpler, usually option 2 is the way to go. Why? Scripts allow you to save your work, easily see what you've already done, and make corrections to your code without retyping everything. They are an essential tool for coding, and they make learning easier as they provide a history of what you have already done. At the end of the day:
+
+-   Scripting makes your work reproducible. You, or someone else, can re-run your code and get the same results.
+-   Scripting makes it easier to work on a project over multiple sessions. You can easily pick up where you left off, even after a long break
+-   Scripting helps you document your work. By adding comments (more on this below) to your code, you can explain your thought process, clarify complex sections, and make your script understandable for both your future self and others who might work with it.
+
+### Code vs. Comments
+
+A line in an R script will generally be one of two things–code, or a comment.
+
+-   Code: A command or a set of instructions to tell the computer what to do
+-   Comment: Notes that R will ignore entirely as it goes through your script
+
+So, if R ignores comments, then what is their purpose?
+
+Comments are something that you write for yourself, or people you are working with. You may work on a script with another person who has no idea what your code is all about, or you may not look at a script for a few weeks and have forgotten what you were trying to accomplish! Putting comments in your code is a way of making notes and passing them to people with whom you are working and/or your future self.
+
+It is easy to identify the difference between a line of code and a comment in R–the hashtag symbol `#` precedes a comment, and R ignores anything on a line following a hashtag as well. You can see two examples of comments in the code below:
+
+```{r}
+#| code-fold: false
+#| echo: true
+#| eval: false
+
+# This line is a comment!
+2+2 # This line has both code and a comment! 
+```
+
+In the example above, the first line began with a `#`, so R would just ignore it and move on. The second line starts with code, and R will read and execute everything in the line up until the `#` and then pretend like the rest of the line doesn't exist.
+
+Comments are your way of documenting code, making it more understandable and easier to share. For now, start practicing by adding simple comments to your scripts as you learn, and concentrate on adding comments that you think will help you make sense of your code later–what will the future you want to know when you return to your script next week, next month, or next year?
+
+### Building Blocks of R: Objects and Functions
+
+While R is capable of being an incredibly elaborate calculator and doing things like add $2+2$, it is capable of much, much more than just that. For the most part, everything you do in R fits into one of three categories. You are either:
+
+1.  Creating *objects* (everything in R is an object),
+2.  Performing *functions* on objects to create new objects or modify existing objects, or
+3.  Exploring and examining these objects to understand their structure or content.
+
+I will do my best to separate these three tasks in this section of the book, but unfortunately, a clean separation is not entirely  possible. Some objects are created by functions, looking at objects requires you to use functions, and so on.
+
+#### Objects
+
+##### Types of Objects
+
+Let's get started with basic object types and object assignment. At its core, R is built around objects, which are like little boxes that hold information. The three most fundamental object types in R are:
+
+-   Values: These are the simplest objects, holding a single piece of information (like the number `42`, or the word `France`).
+-   Vectors: These are a collection of values, all of the same type (like a list of numbers: `1, 2, 3, 4`).
+-   Data Frames: These are like tables or spreadsheets, where rows and columns hold different kinds of data.
+
+We begin with the simplest object type, the value.
+
+While using R you will spend a lot of time creating, defining, and manipulating objects. The preferred way of creating an object is with the assignment operator, `<-`. This is literally the less than symbol `<` and a hyphen `-` slapped together. The keyboard shortcut for the assignment operator is Alt + `-` (Option + `-` on a Mac). While you technically can use an equals sign (`=`) instead, that's generally frowned upon as bad form in R programming. Let's start by creating an object `q` and assigning to `q` the value 42 with the following code.
+
+```{r}
+q <- 42
+```
+
+You can verify that this worked by looking at the environment window-recall, that's the top right pane. The first column tells you the name of your object, `q`, and the second column shows you something about that object. Because `q` is a numeric value (technically, R would call this a numeric vector of length 1), R shows you exactly what the value of `q` is: 42.
+
+::: callout-tip
+###### Tip from the Helpdesk: Script it and Rip it
+
+So, how do you make the assignment of `q <- 42` happen? One option is to type that line of code into your console and hit Enter. However, if you are taking my advice and doing this with a script, you will have noticed that entering `q <- 42` into your script and hitting Enter did nothing more remarkable than simply advancing your cursor to the next line of your script.
+
+There are a few ways to execute code from a script. The simplest method–and the one I use most often–is to put your cursor on the line of code you want to run in your script and hit Ctrl + Enter (Cmd + Enter on a Mac) instead of just Enter. This is actually an example of a super useful keyboard shortcut! Pressing Ctrl + Enter does two things; this will *both* advance your cursor to the next line of script *and* execute the line of code you just typed.
+
+Alternately, if you look at the ribbon at the top of your script, you will see a button that says *Run*. You can use this button one of two ways. You can either put your cursor on the line of code you want to execute and click the button, which will run that line of code, *or* you can select a large chunk of code with your mouse (this can be one line, multiple lines, or the whole script) and then click the button. This will run every line of code you highlighted!
+:::
+
+Another way of verifying that `q` has a value of 42 is to simply type `q` as a line of code.
+
+```{r}
+q
+```
+
+When you do this, R will return the value of `q`, here the number `42`. Something that throws off many people when they start using R is not realizing that everything in R is *case-sensitive*. While `q` is `42`, unless you have already assigned something to `Q`, it will tell you there is an error:
+
+```{r}
+#| error: true
+Q
+```
+
+The error you see will likely be a little different (you should see `Error: object 'Q' not found"`) than what is printed here, but it will be an error nonetheless. As I said, R takes being case-sensitive very seriously!
+
+There are a couple simple rules that govern the naming of objects. The only characters allowed in the name of an object are letters, numbers, periods, or underscores, and object names must begin with a letter. I could create objects with names like `q1`, `q.1` or `q_1`, but not something like `1q` (because it starts with a number) or q!1 (because `!` is an invalid character).
+
+```{r}
+q1 <- 8675309
+q.1 <- 2.718
+q_1 <- 3.142
+```
+
+The fact that `q` is an object that contains the number `42` will remain in R's memory until R is restarted, I overwrite `q`, or I remove `q` (which we'll talk about when we get to functions, a bit later). Overwriting a variable is easy; simply assign a new value to an existing variable name:
+
+```{r}
+q <- 420
+```
+
+```{r}
+q
+```
+
+Objects don't have to be be just numbers. They can hold character values as well–essentially, words or text
+
+```{r}
+a <- "Hello World"
+a
+```
+
+Even though 1 is a number, wrapping it in quotation marks means R treats it like a character value, not a numeric one.
+
+```{r}
+b <- "1"
+```
+
+A second important type of object is a *vector*, a fancy, mathy term for a list. To make a vector, we will need to use the **concatenate** command `c()`. The next bit of code creates two vectors, each with the first few numbers of a couple recognizable sequences:
+
+```{r}
+list_squares <- c(1, 4, 9, 16, 25, 36, 49)
+list_fib <- c(1, 1, 2, 3, 5, 8, 13, 21, 35, 56)
+```
+
+Vectors can also include characters:
+
+```{r}
+countries <- c("USA", "Canada", "Mexico")
+```
+
+All the elements of a list have to be of the same type. This next bit of code tries to create a list that has two values in it that are characters and one value that is a number.
+
+```{r}
+mixed_list <- c("Mt. Everest", 14.6, "Armadillo")
+```
+
+R will not allow this mixing of value types within a vector. It will create the list, but it will force everything to be of the same type. Since `"Mt. Everest"` and `"Armadillo"` cannot be forced into being numbers, R will convert `14.6` to be a character.
+
+The last of the fundamental object types to discuss is the data frame. Typically, datasets in R exist in the form of a data frame. Think of a data frame as being a table or a spreadsheet. Each individual column in a data frame is like a vector, in that all of the values in that column are required to be of the same type. A well structured data frame is often described as **tidy data**, meaning that each row is a single observation, and each column represents a different variable.
+
+To make this more concrete, let’s use an example. R contains a number of inbuilt data frames for tutorial purposes, the most iconic of which is the `iris` dataset. This data frame includes the measurements of 150 flowers–50 each from 3 different species of *iris*. Let's go ahead and load in the `iris` data frame with the command `data(iris)`.
+
+```{r}
+data(iris)
+```
+
+For now, you should see `iris` show up in your Environment window as a *Value* with the rest of the objects you may have created so far. You might notice that it lists the object contents as <Promise>, which simply means that R is waiting for you to actually do something with the `iris` object before it actually loads the data in. This is fine, this is done simply to conserve your computer's memory. As soon as you start to work with the `iris` data, the object will move into the *Data* category in the Environment window, and you will see that it has "150 obs. of 5 variables," which means the dataset has 150 rows and 5 columns.
+
+When we get to functions later in this chapter, we will explore a wide variety of ways to get more information about a data frame. At this point, however, let's just take a quick look at what is in the `iris` data with two functions, `str()` and `head()`. The *structure* function, `str()`, will show us a bit of information about each variable, while `head()` will print out the first six lines of data. These two functions combine to give you a quick and useful snapshot of what the data look like generally. Let's start with `head()`:
+
+```{r}
+head(iris)
+```
+
+When you run `head()`, you’ll see the first six rows of the dataset printed in the console. Each row represents a single flower, and each column corresponds to a specific feature or measurement of that flower, such as `Petal.Length` or `Species`. This tidy format-where rows are observations and columns are variables-makes the iris dataset a great example of tidy data.
+
+Next, looking at the structure allows us to learn a little more about how each of the variables are stored:
+
+```{r}
+str(iris)
+```
+
+Each row corresponds to one of the columns of the data frame, and next to the column names, you can see the types of data that each column contains. The first four variables, `Sepal.Length`, `Sepal.Width`, `Petal.Length`, and `Petal.Width`, are physical measurements of each flower and their type is listed as `num`–a *number*–which is pretty self explanatory! The other variable, `Species`, is stored as a *Factor*, which is a special type of character value. It is a character in the sense that it is not numeric, but R is also recognizing it as being categorical, so it views, for example, all rows in which $Species = "setosa"$ as being part of the same group.
+
+Here is a list of the most common variable types you will encounter in R:
+
+-   Number: Sometimes you will see `num`, sometimes these are listed as `dbl`, or *double*. Doubles are are just numbers that can have decimal values.
+-   Factor: Often shortened as `fctr`, a factor is a character value where R recognizes the variable as being categorical.
+-   Character: These can be abbreviated as `chr`. A character value where R does not recognize the variable as being categorical.
+-   Logical: In shorthand `lgl`, a logical variable is one where the only two possible values are `TRUE` and `FALSE`.
+
+##### Subsetting and Extracting From Objects
+
+We often want to extract elements from our objects. In the case of a value, it is simple, as it only has one element. If we want to know what `q` is, we can simply refer to it as `q`. Extracting elements from vectors and data frames is a bit trickier, and requires us to use brackets (`[]`) for subsetting.
+
+We will start with extracting elements from a vector.
+
+Element extraction is extremely powerful and useful in R. Understanding this first requires an understanding of *indexing*, which essentially refers to the position of an element in an object; the first element of any object is at index position 1, the second element is at index position 2, and so forth.
+
+The following commands extracts the fourth element from `list_squares` (the fourth square number is `r list_squares[4]`) and the sixth element from `list_fib` (the 6th number in the Fibonacci sequence is `r list_fib[6]`):
+
+```{r}
+list_squares[4] 
+list_fib[6]
+```
+
+We can extract all but certain elements with the negative sign; this is called negative indexing. Let's see `list_squares` without the third element:
+
+```{r}
+list_squares[-3]
+```
+
+Another technique is to pull a specific subset. Say we want the 3rd through 6th element of the `list_squares` vector. The colon operator (:) generates a sequence of numbers from the first to the last number, inclusive. In this case, 3:6 creates the sequence 3, 4, 5, 6, allowing you to extract these specific elements.
+
+```{r}
+list_squares[3:6]
+```
+
+A very common use of this functionality is to extract based on a condition, or *filter* your data. Filtering is very useful when working with large datasets, or trying to work with specific subsets of a larger data set. For example, the next command will extract all the elements of `list_fib` that are greater than 10:
+
+```{r}
+list_fib[list_fib>10]
+```
+
+Filtering like this is a bit trickier than simply using indexes because of the use of the comparison operator to evaluate whether each element in `list_fib` is greater than 10. The most common comparison operators in R are:
+
+-   `>`: Greater than
+-   `<`: Less than
+-   `>=`: Greater than or equal to
+-   `<=`: Less than or equal to
+-   `!=`: Not equal to
+-   `==`: Equal to
+
+The `==` comparator is probably the trickiest one to wrap your mind around; note the double equals sign! To differentiate between `=` and `==`, I like to read `=` as "is" or "equals" and `==` as "is equal to". This mental distinction is usually pretty good for helping me determine which symbol to use, as it helps clarify that `==` is used when comparing values.
+
+Extracting elements from a data frame is decidely more complex than from a vector because you need to specify both rows and columns. That said, most of the techniques found above in the vector subsetting section work here. The general syntax for subsetting a data frame is `dataframe[row, column]`
+
+-   The number before the comma refers to the row(s) you want to extract.
+-   The number after the comma refers to the column(s) you want to extract.
+-   Leaving one of these blank will include all rows or all columns, respectively.
+
+Let's turn back to the `iris` dataset for some concrete examples.
+
+Suppose we want to extract the value in the third row and fifth column, which corresponds to the species of the third flower:
+
+```{r}
+iris[3, 5]
+```
+
+You can extract an entire row or column by leaving one of the indices blank. Let's extract the entire 73rd row:
+
+```{r}
+iris[73, ]
+```
+
+And now, the entire third column (`Petal.Length`):
+
+```{r}
+iris[, 3]
+```
+
+To extract a specific subset of rows and columns, specify both indices. For example, let’s extract rows 1–3 and columns 1–2 (Sepal.Length and Sepal.Width):
+
+```{r}
+iris[1:3, 1:2]
+```
+
+Things get tricker when we want to filter specific rows or columns. Filtering rows based on a condition is similar to subsetting vectors but applied to the rows of the data frame. Suppose we want to just look at the `versicolor` irises.
+
+```{r}
+iris[iris$Species == "versicolor", ]
+```
+
+You may have noticed that the complexity just ramped up with that last line of code! A few things need to be explained:
+
+-   The "" around `versicolor` indicate that `versicolor` is a character string. In R, text values (also called character values) must always be wrapped in either single (') or double (") quotation marks to differentiate them from object names, numeric values, or commands. Without the quotes, R would think you were referring to an object named versicolor, which doesn’t exist unless you’ve defined it earlier.
+
+-   The \$ operator is used to refer to a specific column within a data frame by its name, rather than by its index position. Think of it as saying, "Hey, R, show me just this column." In this case, iris\$Species pulls out the Species column from the iris data frame, which contains the species classification for each flower.
+
+-   After the condition (`iris$Species == "versicolor"`), there's a comma followed by nothing. This syntax tells R to filter rows based on the condition, but keep all columns. If we wanted to filter specific rows and specific columns, we’d include an additional condition after the comma.
+
+The key difference between subsetting vectors and data frames is that, when extracting elements or filtering data frames, remember that you must specify both rows and columns. This added complexity makes data frame subsetting more powerful but also trickier than working with vectors.
+
+Subsetting and extracting elements from data frames is a powerful skill that allows you to focus on specific parts of your data, whether by selecting rows, columns, or filtering based on conditions. These techniques are essential for data analysis and are widely applicable across various projects.
+
+In @sec-wrangling on Data Wrangling, we’ll explore the **Tidyverse**, a set of R add-ons designed to make working with data more intuitive. I personally prefer the Tidyverse, and we will make more use if it throughout the text than the methogs above.  The Tidyverse introduces methods for subsetting and extracting data that most people find easier to learn and use, especially with larger datasets or more complex operations. That said, it’s still worth learning these foundational techniques. Even as the Tidyverse simplifies and streamlines many tasks, understanding these basics will give you greater insight into how R works and will be invaluable when you encounter situations where Tidyverse tools might not be the best fit.
+
+#### Functions
+
+Let’s talk about functions! Functions are the heavy lifters of R-they handle most of the actual work in your scripts, and using them is the key to nearly everything you will do in R. In this section, we’ll break down what functions are, how they work, and why they’re so important. I’ll also introduce a few super useful functions to get you started, but the goal here isn’t to take a deep dive into specific functions. Instead, we’re focusing on the big picture: understanding how functions operate so you can use them effectively.
+
+Functions are how we get R to do things. They take input, process it, and (usually) give us some output. Functions are so central to R that you’ve already used some-commands like `head()`, `str()`, and `data()` are all functions!
+
+One of the first functions to know is rm(), which stands for "remove." This handy function lets you delete objects from your environment when they’re no longer needed. Do you no longer need `q`?
+
+```{r}
+rm(q)
+```
+
+Poof! It's gone. Do you want a reset button? Get rid of all the objects in your environment? This is a bit of a trickier command, but:
+
+```{r}
+rm(list = ls())
+```
+
+Be careful with this one; it's the nuclear option!
+
+Beyond `head()` and `str()`, there are a few useful tools for exploring your data:
+
+-   `View()`: Opens your data frame in a spreadsheet-style viewer. Great for getting a bird’s-eye view.
+-   `summary()`: Provides basic summary statistics for each column in a data frame. Perfect for a quick look at your data's distribution. This function has a lot of other uses for other object types as well; we will look at them later.
+-   `class()`: Tells you the data type of an object. Is it a vector? A data frame? Something else? You can also feed a particular column into `class()` to learn about the type of variable it is.
+-   `names()`: Returns a list of the variable names in a dataset. This also has a lot of uses for different object types.
+-   `levels()`: Useful for exploring factors (categorical variables). This shows you the categories that exist in a factor variable.
+
+Let's use some of these new functions with the `iris` data set. But first, since I just nuked my workspace with `rm(list = ls())`, I need to get it back!
+
+```{r}
+data(iris)
+```
+
+The results of `View(iris)` won't show up in this document, because technically, `View()` is not an R command, it's an RStudio only command. If you execute the line of code below, you should see a spreadsheet-like view of the dataset pop up in your Editor pane. While `View()` is very useful in small datasets, when you start to encounter massive ones `View()` can get sluggish.
+
+```{r}
+View(iris)
+```
+
+We can get a brief overview of some of the summary statistics of the data with the `summary()` function:
+
+```{r}
+summary(iris)
+```
+
+For the `iris` data, it creates numerical summary statistics of the 4 numeric variables and a tabulation of the categorical variable.
+
+Next, we can see the result of the `class()` function:
+
+```{r}
+class(iris)
+```
+
+This is not that useful. Where `class()` shines with data is when you look for the class of a variable:
+
+```{r}
+class(iris$Species)
+```
+
+The `levels()` function is really useful when looking at factor variables–knowing the variable is categorical is good, but what if you want to know what the possible values for your factor variable are? This is where `levels()` comes in handy:
+
+```{r}
+levels(iris$Species)
+```
+
+Functions often have more than one input, called arguments, that let you customize what the function does. Let’s look at an example using the `round()` function, a fairly simple function which rounds numbers to a specified number of decimal places. The syntax for round() is `round(x, digits)`, where `x` is what you want to round and `digits` is the number of decimal places to round to.
+
+Let's work with a couple examples to see how this works. Let's create an object called `pi` that is the mathematical constant $\pi$ to 10 decimal places.
+
+```{r}
+pi <- 3.1415926535
+```
+
+The "proper" way to specify arguments is with the `=` sign, so we might round `pi` to three decimal places by typing:
+
+```{r}
+round(x = pi, digits = 3)
+```
+
+If we are going to do it the "proper" way, then it doesn't matter which order we put our arguments. Note that reversing the order of the arguments gives the same result:
+
+```{r}
+round(digits = 3, x = pi)
+```
+
+Once you become more accustomed to specific functions, and you learn the default order of the arguments, you can dispense with the `x =` and `digits =` and just enter the arguments directly into the function. If you do this, R assumes that we are putting our arguments into the function in the order of `(x, digits)`, so the easiest way to round `pi` to 3 decimal places is:
+
+```{r}
+round(pi, 3)
+```
+
+Strictly speaking, the `digits` is an *optional* argument; you can specify a number of places to round to, but if you don't, there is a default value pre-programmed into R. In this case, the default value is 0. If I want `pi` rounded to the nearest whole number, I could type:
+
+```{r}
+round(pi)
+```
+
+::: callout-tip
+######Tip from the Helpdesk: Parental Advisory Explicit Content
+
+When should you use the `=` sign to specify arguments explicitly? It really depends on the situation:
+
+-   Be Explicit: If you’re new to a function or sharing your code with others, using = makes your intentions crystal clear. For example, `round(x = pi, digits = 3)` leaves no doubt about what you’re doing, even to someone seeing the code for the first time. Explicit arguments also prevent mistakes when functions have many inputs, or when you’re skipping over optional arguments. This is especially helpful if you only want to change one or two specific arguments from their default values while leaving the rest untouched.
+
+-   Skip the Explicitness: Once you’ve mastered a function and know its argument order by heart, you can skip the = for a quicker, cleaner look. For instance, `round(pi, 3)` works just as well and is easier to read when the function is simple and the meaning is obvious.
+
+Ultimately, the choice between explicit and implicit argument calling depends on your context. I suggest that you prioritize clarity and explicitness when learning, debugging, or sharing code. As you gain experience and familiarity with functions, you can adopt a more streamlined approach for speed and simplicity. Find what works best for you!
+:::
+
+A final useful bit to note: you will often want to save the output of a function as an object. This can be done with the assignment operator. For example:
+
+```{r}
+pi3 <- round(pi, 3)
+```
+
+This creates an object called `pi3` that is `pi` rounded to three decimal places. Note that creating the object doesn't create any output! However, you should be able to see `pi3` in your environment window, and I can use it in my code if I want:
+
+```{r}
+pi3
+```
+
+So, let's stretch our legs a bit and combine some of the techniques we've seen thus far.  Suppose we want to calculate the average petal length for each of the three different iris types, and to save each of these averages as an object. How might we do this? We need one function that we haven't seen yet, the `mean()` function, but the rest of this task can be accomplished with what we've learned so far. We’ll use the mean() function to calculate the average, combined with subsetting and filtering techniques to isolate each species. For example, this line of code will calculate the mean petal length of setosa irises and put it into the object `mean_setosa`:
+
+```{r}
+mean_setosa <- mean(iris$Petal.Length[iris$Species == "setosa"])
+```
+
+How does this work?
+
+-   `iris$Petal.Length`: This selects the Petal.Length column from the iris dataset.
+-   `[iris$Species == "setosa"]`: This subsets the Petal.Length column to include only the rows where the species is setosa.
+-   `mean()`: This calculates the average of the subsetted petal lengths.
+-   Assignment with `<-`: Finally, we assign the calculated mean to a new object called `mean_setosa`.
+
+How would you go about calculating the means of the versicolor and virginica irises? Think about it, then check the answer below:
+
+```{r}
+mean_versicolor <- mean(iris$Petal.Length[iris$Species == "versicolor"])
+mean_virginica <- mean(iris$Petal.Length[iris$Species == "virginica"])
+```
+
+If I told you that the function to calculate a standard deviation was `sd()`, do you think you could repeat this task for the standard deviation for each iris type?
+
+::: callout-tip
+###### Tip from the Helpdesk: Help! I Need Somebody!
+
+Stuck on a function? Encountered an error that makes no sense? Welcome to programming-this happens to everyone. Here are some strategies to get unstuck:
+
+-   Read the Error Message: The error messages in R often feel cryptic at first, but they usually contain valuable clues. Carefully read the error message and pay attention to the function or object it mentions. For example, `Error in mean(x) : 'x' must be numeric` is telling you that there is a mismatch between what the function `mean(x)` wants you to use as an argument and what you actually used as an argument. Or, in English, you are trying to calculate the average of something that isn't a set of numbers!
+
+-   Google It: If the error message doesn’t make sense, copy and paste it into Google (or your search engine of choice). Chances are, someone else has encountered the exact same issue before. Include “R” in your search query to narrow results to relevant discussions.
+
+-   Search Discussion Boards: Websites like Stack Overflow are goldmines for R troubleshooting. Search the error message, function name, or problem description-many questions have already been asked and answered. If you don’t find an exact match, consider posting your question (and include a clear explanation with reproducible code!).
+
+-   Check R’s Built-In Help: Use `?function_name` (e.g., `?sd`) or `help(function_name)` in the console to access R’s documentation for a function. While this can be dense, it often includes examples that can clarify how a function works.
+
+-   Experiment and Simplify: If the error seems mysterious, try breaking your code into smaller chunks and running them one by one. This can help pinpoint where things are going wrong.
+
+-   Ask for Help (Politely): If all else fails, reach out to someone knowledgeable, such as a colleague, professor, or online community. When asking for help, provide context, include the full error message, and share your code (or a simplified version of it). Clear questions get faster, more helpful answers.
+
+Remember, troubleshooting is an essential skill in programming, and learning how to solve problems independently will make you a stronger coder. Most importantly-don’t get discouraged! Every coder, no matter how experienced, hits roadblocks. I genuinely feel that I've learned more R from fixing mistakes in my code than any other way!
+:::
+
+### Expanding R: Packages
+
+Every command this far has used what is called **Base R**. Base R is the basic software that contains the R programming language and many statistical and graphical tools. However, R is also extensible via packages, user-written sets of commands that are typically open-source (e.g. freely available) that expand upon the capabilities of R.
+
+Most R packages uploaded to the CRAN network–recall, we configured your preferred CRAN server earlier in this chapter–and are relatively easy to install. Packages in R must be installed before they can be used, *and* they must also be loaded into memory every time you use them.
+
+For example, let's say I want to calculate the mean rate of return of an asset. I know that the proper method for calculating a mean rate of return is to calculate a geometric mean, not an arithmetic mean, because arithmetic means tend to overstate average rates of return. Unfortunately, Base R doesn't have a function to calculate a geometric mean, so I will need to find a package that another R user has written that includes such a function. It turns out that there is a package called `EnvStats` [@EnvStats] that includes a function called `geoMean()` which does precisely that.
+
+To install a package. you use the command `install.packages()` and put the name of the package to be installed in quotation marks inside the parentheses:
+
+```{r}
+#| eval: false
+#| code-fold: false
+#| echo: true
+
+install.packages("EnvStats")
+```
+
+::: callout-tip
+###### Tip from the Helpdesk: You only need to install a package once
+
+It is generally bad idea to include an `install.packages()` command within a script, because this generally leads to attempting to reinstall packages repeatedly which is a waste of time and often breaks your code anyhow.
+
+If you insist on putting the `install.packages()` command into your script, only run it once, and then comment it out by adding a hashtag (`#`) before the command!
+
+Think about it like this: `install.packages()` is like going into the app store on your phone to get an app, `library()` is like clicking the icon on your phone. You wouldn't reinstall Instagram every time you want to use it, right?  
+:::
+
+Once a package is installed, I need to let R know when I want to use it. When you open R via RStudio, the only thing that starts right away is Base R, so the only commands you can use natively are those from Base R. If I want to use the `geoMean()` function from within the `EnvStats` package I just installed, I need to let R know where to find the `geoMean()` function. There are two ways of doing so.
+
+The first method (and frankly, the less preferred method) uses the double colon operator - `::` - and has the general syntax of `library::function`. To see this in action, let's create a vector with 6 months of rates of return for an asset:
+
+```{r}
+ror6 <- 1 + c(.04, .13, -.03, .11, -.05, .08)
+```
+
+Let's assume I want to calculate the average rate of return, which is where the geometric mean comes in. Next, let's use the double colon method to calculate the geometric mean using the `geoMean()` function from the `EnvStats` package:
+
+```{r}
+EnvStats::geoMean(ror6)
+```
+
+The `geoMean(ror6)` function shows that the rate of return of my asset is `r 100*(round(EnvStats::geoMean(ror6), 3) - 1)`%.
+
+The double colon operator is useful if you only plan on using a function from a particular library once in a script or coding session, as it doesn't require R to load everything in the package in at once. This conserves your computer memory, and weird things can happen when you have too many packages loaded at once. However, it is often easier to simply load the library into memory so you can access the function without typing `::` all over the place. Loading a package into memory is accomplished with the `library()` command. So if I wanted to use the `EnvStats` package, I would type `library(EnvStats)` (unlike with the `install.packages()` function, this time I don't need quotation marks) into R and then I could use all of the functions contained within. This next code chunk first loads `EnvStats`, so I can directly use `geoMean()` in the following line.
+
+```{r}
+#| warning: false
+
+library(EnvStats)
+geoMean(ror6)
+```
+
+Generally speaking, the `library()` approach is used far more often than the `::` approach.
+
+::: callout-tip
+###### Tip from the Helpdesk: Deep Dive into Packages with Vignettes
+
+Many R packages include vignettes-detailed guides and examples to help you get started. To explore vignettes for a package, use browseVignettes("package_name") or vignette("topic", "package_name"). They’re like mini-tutorials designed to show off the package’s capabilities!
+:::
+
+As you continue through this book, you’ll encounter various R add-ons and tools that extend its functionality. Each package will be introduced when it becomes relevant, along with guidance on how to use it effectively. This approach ensures that you won’t need to learn everything all at once, making the process more manageable and less overwhelming.
+
+## Wrapping Up
+
+This chapter has laid the foundation for your journey with R, introducing you to some essential tools, terminology, and concepts. From understanding the relationship between R and RStudio to diving into objects, functions, and even extending R’s capabilities with add-ons like packages, we’ve taken the first steps toward mastering this powerful programming environment.
+
+As you move forward, remember that R is both a tool and a language. Like learning any new language, the key to success is consistent practice, patience, and curiosity. Don’t be afraid to experiment and make mistakes. Embrace the mistakes; it is the through the fixing of them that learning occurs. I want to reinforce a sentiment I mentioned in @sec-intro Introduction; the learning curve might be pretty steep, and if you are feeling frustrated or overwhelmed right now, that's understandable. But the worst thing you could do right now in terms of learning R is to turn to an AI to do the work for you. Sure, you'll get code that works. But you won't have learned a thing.
+
+In the next chapter, we’ll dive deeper into data wrangling, where you’ll learn how to clean, reshape, and manipulate data using more advanced techniques. You’ll also get to know the Tidyverse, a game-changing set of tools that make working with data in R even more intuitive and enjoyable.

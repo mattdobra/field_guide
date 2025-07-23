@@ -1,0 +1,43 @@
+project:
+  type: book
+
+book:
+  title: "Applied Econometrics: An Intuitive Field Guide with R"
+  author: "Matt Dobra"
+  date: "7/1/2025"
+  chapters:
+    - index.qmd
+    - intro.qmd
+    - basicR.qmd
+    - wrangling.qmd
+    - litprog.qmd
+    - basicstats.qmd
+    - inferstats.qmd
+    - basicreg.qmd
+    - assumptions.qmd
+    - categoricalIV.qmd
+    - categoricalDV.qmd
+    - censoredcount.qmd
+    - timeseries.qmd 
+    - panelreg.qmd
+    - nextsteps.qmd
+    - references.qmd
+
+bibliography: references.bib
+
+format:
+  html:
+    theme: cosmo
+    code-fold: true
+    embed-resources: true
+    polyfill: false
+    # math: none
+    # self-contained-math: true
+  pdf:
+    documentclass: book
+    execute:
+      echo: true
+
+editor: source
+
+citation-location: document

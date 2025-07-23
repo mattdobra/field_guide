@@ -1,0 +1,692 @@
+# Regression Assumptions {#sec-assumptions}
+
+The OLS model encountered in @sec-basicreg is built on a series of assumptions that we will now examine.  When you are first learning about OLS, it's fair to ignore them while you building your intuition, but, like the responsibility of adulting, you can't hide from them forever.  We will also look at some of the tools at our disposal when one or more of the assumptions do not hold.  As usual, I start with loading in the data I will be using.  Additionally, there are a couple new libraries introduced in this chapter: `lmtest` and `sandwich`. If they are not installed on your computer, you will need to use the `install.packages()` function on them first.  
+
+```{r}
+#| warning: false
+#| message: false
+
+library(tidyverse)
+library(stargazer)
+library(sandwich)
+library(lmtest)
+library(openintro)
+library(wooldridge)
+library(AER)
+
+data(ceosal1)
+data(hprice3)
+data(sp500_1950_2018)
+data(TeachingRatings)
+data(smoke)
+data(infmrt)
+
+
+# Setup Colors!
+colorlight <- "lightsteelblue"
+colordark <- "steelblue"
+
+colorlight2 <- "indianred1"
+colordark2 <- "indianred4"
+```
+
+We will work through a series of assumptions upon which the OLS model is built, and what one might do if these assumptions do not hold. 
+
+## Assumption 1: The Linear Regression Model is "Linear in Parameters"  
+
+The basic model is:
+
+\begin{equation}
+Y_{i} = \alpha + \beta X_{i} + \epsilon_i
+\end{equation}
+
+This is, of course, the equation for a straight line.  But what if the data doesn't really look all that amenable to drawing a straight line? It turns out, there's actually a quite a lot we can do with regression if we are willing to do just a little more math. Let's look at this data from the `ceosal1` dataset in the `wooldridge` package.  As usual, check out the helpfile `?ceosal1` before jumping in.  
+
+Suppose we are interested in the relationshp between company sales and CEO salary; we might expect that CEOs of larger companies make more money than CEOs of smaller companies - seems reasonable, right? So, let's graph CEO salary on the Y axis and the company sales on the X axis.
+
+```{r}
+#| message: false
+
+ceosal1 |> ggplot(aes(y = salary, x = sales)) + 
+  geom_point(color = colordark) +
+  theme_minimal() +
+  geom_smooth(method = lm,
+              color = colordark,
+              fill = colorlight) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0)) +
+  labs(title = "CEO Salary and Company Size",
+       x = "Company Sales ($M)",
+       y = "CEO Salary ($K)")
+```
+To be honest, just by eyeballing the graph I'd say that I don't think we will find much of a relationship here when we run a regression. And maybe part of what is going on might be due to the fact that both the CEO salary and sales data look skewed, so maybe we just don't have a linear relationship.  Let's see what the regression looks like:  
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+reg_ceo1 <- lm(salary ~ sales, data = ceosal1)
+stargazer(reg_ceo1, type = "html")
+```
+
+What do our results say? The coefficient on the relationship between `sales` and `salary` is significant at the 10% level, and the magnitude of the coefficient, $\hat{\beta} = .015$. Doing the math, this suggests that a \$1 million increase in sales results in salary going up by .015 thousand dollars--fifteen bucks! The $R^2 = .01$ is tiny, but we might be able to do better if we do something about the non-linearity. 
+
+Here's the key insight: all OLS requires is that the model is *linear in parameters*. We can take what we learned in @sec-basicreg Basic Regression about data transformation to do some mathematical transformations of the data to create a linear function that captures a non-linear relationship. 
+
+We saw in that chapter that linear transformations of variables (like converting miles to hundreds of miles) didn't change the underlying relationship when we ran the regression. But what happens if we create a *non-linear* transformation of a variable. What we will see is that, if we transform the data in a non-linear way...maybe we square a variable, or take its natural log...we can still use the linear model to estimate a non-linear relationship!
+
+Here's a concrete example of what we are doing: remember parabolas from high school algebra? The equation $y = ax^2 + bx + c$ describes a curved relationship. But here's the thing...if you create a new variable $z = x^2$, then you can rewrite that same parabola as $y = az + bx + c$. And now, it LOOKS linear to R! You've got $y$ on the left, and a bunch of variables ($z$, $x$) with coefficients ($a$, $b$, $c$) on the right. R has no idea that $z$ is actually $x^2$. It just sees another variable to include in a linear regression.
+
+This is exactly what we're going to be doing here. We're taking a curved relationship and mathematically preprocessing the variables so that linear regression can handle it. The relationship is still fundamentally non-linear, but we've done the mathematical heavy lifting upfront.
+
+To see this in action, let's calculate the natural log of both `salary` and `sales` and plot those new variables:
+
+```{r}
+ceosal2 <- ceosal1 |> 
+    mutate(lnsalary = log(salary)) |> 
+    mutate(lnsales = log(sales))
+```
+
+Now, when we plot them:
+
+```{r}
+#| message: false
+
+ceosal2 |> ggplot(aes(y = lnsalary, x = lnsales)) + 
+  geom_point(color = colordark) +
+  theme_minimal() +
+  geom_smooth(method = lm,
+              color = colordark,
+              fill = colorlight) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0)) +
+  labs(title = "CEO Salary and Company Size",
+       x = "Natural Log of Company Sales ($M)",
+       y = "Natural Log of CEO Salary ($K)")
+```
+
+Before we move on to estimating and interpreting the log-log results, let's slow down a bit and actually watch this transformation happen in real time. Check out the animation below; warning, the code is a bit advanced but I left it in for the curious. You'll see the same CEO salary data morphing from a blob of dots smushed in the bottom left corner of the graph into a neat linear relationship as we transform both variables from their original scales to logarithmic scales. This animation shows something pretty cool: the relationship between CEO pay and company sales was always there - it was just hiding in a different dimension. Watch how the same data points literally rearrange themselves from apparent randomness into a clear linear pattern when we transform the scales.
+
+```{r}
+#| message: false
+
+library(gganimate)
+
+# Morph from linear -> sqrt -> log and back.  Sqrt step helps slow the transition down.
+
+anim_data <- bind_rows(
+  ceosal2 |>  mutate(stage = "1-Linear", x = sales, y = salary),
+  ceosal2 |>  mutate(stage = "2-Sqrt", x = sqrt(sales), y = sqrt(salary)), 
+  ceosal2 |>  mutate(stage = "3-Log", x = lnsales, y = lnsalary),
+  ceosal2 |>  mutate(stage = "4-Sqrt", x = sqrt(sales), y = sqrt(salary)),
+  ceosal2 |>  mutate(stage = "5-Linear", x = sales, y = salary)
+)
+
+g <- anim_data  |> 
+  ggplot(aes(x = x, y = y)) +
+  geom_point(color = colordark) +
+  geom_smooth(method = "lm",
+              color = colordark,
+              fill = colorlight) +
+  transition_states(stage, transition_length = 20, state_length = 2) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0)) +
+  theme_minimal() +
+  ease_aes('sine-in-out') +
+  view_follow(fixed_x = FALSE, fixed_y = FALSE) +
+  labs(title = "Stage: {closest_state}",
+       x = "Sales",
+       y = "Salary")
+
+
+animate(g)
+
+```
+
+The logged data looks very different; in fact, these data display a pretty clear **linear** relationship now.
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+reg_ceo2 <- lm(lnsalary ~ lnsales, data = ceosal2)
+stargazer(reg_ceo2, type = "html")
+```
+
+The $R^2$ is considerably higher now, the $\beta$ is significant at the 1% level, and all in all this is a much more compelling model. We do need to take some care in interpreting the regression results because of the natural log transformation.
+
+The log transformation is probably the most common one we see in econometrics.  Not only because it is useful in making skewed data more amenable to linear regression, but because there is a very useful interpretation of the results.  Let's look at the regressions again, side by side:
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+stargazer(reg_ceo1, reg_ceo2, type = "html")
+```
+
+The regression on the left was the linear-linear model.  Interpreting this coefficient demands that we are aware of the units of measure in the data: sales are measured in millions of dollars, salary in thousands of dollars. So $\beta=0.015$ literally says that if sales goes up by 1, salary goes up by 0.015. But we interpret this as saying that, for every additional \$1,000,000 in sales, CEO salary is expected to go up by \$15. The model on the right is the log-log model. By log transforming a variable before estimating the regression, you change the interpretation from level increases into percentage increases. This model states that a 1% increase in sales on average leads to CEO pay going up by 0.257%. In economics, this coefficient is called an elasticity - it measures how responsive one variable is to percentage changes in another. This is why economists love a log-log regression!
+
+Let's go ahead and estimate the linear-log and log-linear models too.  
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+reg_ceo3 <- lm(lnsalary ~ sales, data = ceosal2)
+reg_ceo4 <- lm(salary ~ lnsales, data = ceosal2)
+stargazer(reg_ceo1, reg_ceo4, reg_ceo3, reg_ceo2, type = "html")
+```
+
+Here all 4 specifications are side-by-side.  We've already interpreted columns 1 and 4.  How would we interpret columns 2 and 3?  Neither are as straightforward as columns 1 or 4, but the key idea to keep in mind is that a logged variable needs to be interpreted in percentage change terms.  
+
+-   Column 2 is the linear-log model ($salary$ is linear, $sales$ is logged).  A 1% increase in sales is associated with an increase in CEO salary of roughly \$263. This is useful when you think the effect of sales on salary diminishes as sales get larger. 
+
+-   Column 3 is the log-linear model, where $salary$ is logged but $sales$ is linear. here,  A 1 unit increase in sales (\$1,000,000) is associated with a roughly 0.001% higher salary. This is useful when you think percentage changes in salary are constant regardless of the absolute level of sales.
+
+The intuition of log-linear and linear-log interpretation can get a bit tricky, and in both cases there is some math involved in getting the precise answer. If you want a bit of a deeper dive into this, check out @logvars from the UCLA OARC Statistical Consulting webpage.
+
+Ultimately, given both the superior $R^2$ (0.211 vs 0.014-0.079 for the others) and the relatively straightforward elasticity-based interpetation of column 4, the log-log regression is likely the best model for this particular data.  
+
+Another common non-linear transformation is the quadratic transformation; this is particularly useful in cases where you think a relationship may be decreasing up to a point, and then start increasing after that point (or vice versa).  To see this in action, let's look at a graph that looks at the relationship between the age and selling prices of homes in the `hprice3` data from the `wooldridge` package.
+
+```{r}
+hprice3 |> ggplot(aes(x = age, y = price)) +
+  geom_point(color = colordark) +
+  theme_classic() +
+  scale_y_continuous(labels=scales::dollar_format()) +
+  labs(title = "House Value and Age",
+       y = "House Price",
+       x = "Age of Home") 
+```
+
+This relationship looks somewhat U-shaped; moving left to right, it seems that the value of houses falls as they get older, but at a certain point, the relationship reverses course and older becomes **more** valuable! There are a lot of reasons why this might make sense. Older houses may have historical value. Or, older houses (especially really old ones) are likely to be in city centers or historic neighborhoods with mature trees and character, so we may have an omitted variable. Older houses could simply be better constructed; maybe it's true that "they don't build `em like they used to!" Ok, that's probably not true, but what likely is true is that all the 150 year old houses that were poorly constructed have fallen down by now, whereas the shoddy 3 year old houses haven't had time to fall apart yet, so you might have a difference in quality coming from selection bias.  
+
+Regardless of the "why" here, this looks like a great place to estimate a **quadratic** regression, which is just a fancy term for including both $age$ and $age^2$ in our regression:
+
+\begin{equation}
+Price_{i} = \alpha + \beta_1 age_{i} + \beta_2 age_i^2 + \epsilon_i
+\end{equation}
+
+We will also estimate the linear regression for purposes of comparison.  The best method for the quadratic regression is to include the `I()` argument in our `lm()`; alternately, we can manually create a squared term and put it in our regression.  The `hprice3` data already has a squared term in it called `agesq`, so let's verify that both methods get us to the same place:
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+reg_house1 <- lm(price ~ age, data = hprice3)
+reg_house2 <- lm(price ~ age + I(age^2), data = hprice3)
+reg_house3 <- lm(price ~ age + agesq, data = hprice3)
+stargazer(reg_house1, reg_house2, reg_house3, type = "html")
+```
+Both columns 2 and 3 are identical, as expected. Both the linear and the quadratic term are significant, and the $R^2$ has increased from 0.11 to 0.28, suggesting that adding the quadratic term was the right call.  Note that if you include a squared term, you should always include the linear term too...otherwise you're forcing your parabola to have its maximum or minimum at $x = 0$, which is probably not what you want. As you'll see below, our parabola has its minimum at $x = 91.4$! Our quadratic regression model, then, looks like:
+
+\begin{equation}
+Price_{i} = \$113,762.10 - \$1691.90 age_{i} + \$9.26 age_i^2 + \epsilon_i
+\end{equation}
+
+We can look at these two models graphically as well: the red line is the linear model (column 1 above), the blue line is the quadratic model (column 2/3 above).  The blue line looks like a much better fit!
+
+```{r}
+#| message: false
+#| warning: false
+
+hprice3 |> ggplot(aes(x = age, y = price)) +
+    geom_point(color = colordark,
+               alpha = .4) +
+    theme_classic() +
+    labs(title = "House Value and Age",
+         y = "Price",
+         x = "Age") +
+    geom_smooth(method = lm, 
+                color = colordark2,
+                se = FALSE) +
+    geom_smooth(method = lm, 
+                formula = y ~ x + I(x^2),
+                color = colordark,
+                se = FALSE) +
+    scale_y_continuous(labels=scales::dollar_format())
+```
+
+::: callout-tip
+###### Data Storytelling: Calculus Interlude
+
+If you are willing to indulge me with the opportunity to do a tiny bit of calculus, we can use this regression to calculate the age at which the relationship stops decreasing and starts increasing.  You simply need to take the derivative of the regression equation with respect to age, set it equal to zero, and solve for age!
+
+\begin{equation}
+Price_{i} = \$113,762.10 - \$1691.90 age_{i} + \$9.26 age_i^2 + \epsilon_i
+\end{equation}
+\begin{equation}
+\frac{\partial Price_i}{\partial age} = \$1691.90 + 2 \cdot \$9.26 age_i = 0 \: at \: age^\star
+\end{equation}
+\begin{equation}
+\frac{\$1691.90}{\$18.52} = age^\star=91.4 
+\end{equation}
+
+As houses in this dataset age, they lose value until they hit 91.4 years of age, at which point they start appreciating in value! 
+
+:::
+
+## Assumption 2: The Average of the Error Term is 0
+
+You may have wondered why we bother with having a constant term $\alpha$ in our regressions if nobody really cares about it.  It turns out that the constant term is what makes this assumption true.  For example. let's look back at our log-log model from the above:
+
+```{r}
+summary(reg_ceo2)
+```
+The **Residuals** panel above the coefficients looks at the distribution of the error term.  Each residual from the regression is stored in the regression object; let's put them in our tempdata dataset and take a look at the first few rows.
+
+```{r}
+ceosal2$resid <- reg_ceo2$residuals
+head(ceosal2[c(1,3,13,14,15)],)
+```
+
+Is the mean of our residuals = 0?  
+
+```{r}
+mean(ceosal2$resid)
+```
+
+I mean...that's about as close to zero as you can get: 
+
+```{r, echo = TRUE}
+format(mean(ceosal2$resid), scientific = FALSE)
+```
+
+I'm gonna go ahead and call this a rounding error!  As long as you always have $\alpha$ in your regression, this assumption isn't something to worry about. There are only occasionally cases where you might want to run a regression without a constant, but they are very rare.
+
+## Assumption 3: The Independent Variable is Uncorrelated with the Error Term
+
+If the independent variable is correlated with the error term, it means the error isn't random.
+
+Since we already put the residuals in the ceosal2 data frame, let's see if the residual is correlated with the independent variable lnsales.
+
+```{r}
+cor(ceosal2$lnsales, ceosal2$resid)
+```
+
+Pretty darn close to zero.  
+
+Typically this error is violated when you have **confounding** variables or **omitted variables**, which basically means you need to add more independent variables to your model.  We already discussed this idea briefly in @sec-basicreg Basic Regression, and it will continue to be a topic we touch on throughout the book.
+
+When moving on to doing more advanced econometrics and model building, violations of this assumption become a serious problem.
+
+## Assumption 4: The Error Term is not Serially Correlated.
+
+This is mostly a problem in time series regression (a regression where you use a continuous measure of time as an independent variable), and refers to a situation in which you can use error terms to predict each other.  Let's take a look at this data (`sp500_1950_2018`)from the S&P 500 from the `openintro` package. These data are nearly 70 years of daily observations.  
+
+I'll do a little bit of fancy data wrangling here, just to make the graph clean. I'm also creating a time trend variable (t) that numbers each observation sequentially; this will be our independent variable for the regression.
+
+```{r}
+spdat_daily <- sp500_1950_2018 |> 
+  mutate(t = row_number())
+
+spdat_daily |> ggplot(aes(x = t, y = Adj.Close)) +
+  geom_line(color = colordark) + 
+  geom_point(color = colordark,
+             alpha = .9,
+             size = .3) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1, nrow(spdat_daily), by = 2550), 
+                     labels = seq(1950, 2010, by = 10)) +
+  labs(title = "S&P 500 Daily Values, 1950-2018",
+       x = "Year", 
+       y = "S&P 500 Adjusted Close")
+```
+
+
+Now we can calculate a time trend for the Adjusted Close. This is as simple as using that time trend variable we created above as our independent variable in a regression!
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+reg_sp1 <- lm(Adj.Close ~ t, data = spdat_daily)
+stargazer(reg_sp1, type = "html")
+```
+
+The coefficient on the time trend, 0.116, says that on average, the S&P went up by 0.116 points per day over this time period.  We can visualize this trend by adding a `geom_smooth` to our previous graph:
+
+```{r}
+#| message: false
+
+spdat_daily |> ggplot(aes(x = t, y = Adj.Close)) +
+  geom_line(color = colordark) + 
+  geom_point(color = colordark,
+             alpha = .9,
+             size = .3) +
+  geom_smooth(method = "lm",
+              linewidth = .2,
+              color = colordark2) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1, nrow(spdat_daily), by = 2550), 
+                     labels = seq(1950, 2010, by = 10)) +
+  labs(title = "S&P 500 Daily Values, 1950-2018",
+       x = "Year", 
+       y = "S&P 500 Adjusted Close")
+```
+
+So while our $R^2$ is pretty huge, looking at the graph we can see that the line is a pretty weird fit.  Every single day between 1950 and roughly 1968, the market is above the line of best fit.  Heck, it's not until 1965 or so that the model even predicts positive values for the S&P, which maybe suggests we should do a nonlinear model, but I digress. And then from 1968 to maybe 1997, every single day the market is below the line of best fit. Then it's above from 1997 until 2003, and so on.  
+
+This graph exhibits what is called **serial correlation** or **autocorrelation** as consecutive error terms are correlated with each other.  In other words, if we know the error term for July 17, 2007, we can use that information to make a pretty good guess about the error term for July 18, 2007, and so forth. 
+
+This might be more clear if we plot the residuals on the Y axis against time:
+
+```{r}
+
+spdat_daily$resid <- reg_sp1$residuals
+spdat_daily |> ggplot(aes(x = t, y = resid)) +
+  geom_line(color = colordark) + 
+  geom_point(color = colordark,
+             alpha = .9,
+             size = .3) +
+  geom_abline(slope = 0, intercept = 0,
+              color = colordark2,
+              linetype = "dashed") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1, nrow(spdat_daily), by = 2550), 
+                     labels = seq(1950, 2010, by = 10)) +
+  labs(title = "Residual Values, 1950-2018",
+       x = "Year", 
+       y = "Residuals")
+```
+
+The dashed red line is where our residuals are zero. Ideally, there wouldn't be a trend here, but clearly there are patterns in this data.  Again, the issues of serial correlation are mostly time series issues, so we will take a deeper look at these in @sec-timeseries. 
+
+## Assumption 5: Homoskedasticity of the Error Term
+
+We assume that the error term is **homoskedastic**, which means that the variance of the error term is not correlated with the dependent variable.  If the variance of the error term is correlated with the dependent variable, the data is said to be **heteroskedastic**.  We can look for heteroskedasticity by looking at a plot of residuals and fitted values.  
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-alt: 'Futurama Fry meme. Fry has a puzzled/squinting expression and says "Not sure if heteroskedasticity is econometrics term... or serious medical condition"'
+#| out-width: 60%
+
+knitr::include_graphics("images/heterofry.jpg")
+```
+
+Let's take a look at a regression with homoskedasticity first.  In @sec-basicreg we looked at the relationship between faculty attractiveness and teaching evaluations; here, we estimate the regression and plot the fitted values on the X-axis and the residuals on the Y-axis.  For ease of reading, I am adding a horizontal line at 0:
+
+```{r}
+reg_beauty <- lm(eval ~ beauty, data = TeachingRatings)
+
+TeachingRatings$fitted <- reg_beauty$fitted.values
+TeachingRatings$residuals <- reg_beauty$residuals
+
+set.seed(8675309)
+
+TeachingRatings |> ggplot(aes(x = fitted, y = residuals)) +
+  geom_jitter(color = colordark, height = .05) +
+  geom_hline(yintercept = 0, color = colordark2, linetype = "dashed") +
+  theme_minimal() +
+  labs(title = "Residuals vs Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals")
+```
+
+Note that the variation around the horizontal line is roughly the same for all of the possible fitted values. If you unfocus your eyes a bit and just look at the general shape of the data, you should see a rectangle.  This is the ideal!
+
+Now, let's take a look at a regression using the `smoke` data in the `wooldridge` package.  We estimate the effect of `income` on the number of daily cigarettes smoked, `cigs`.  The estimated coefficients are not significant, but that's not important for what we are trying to show here.
+
+```{r}
+reg_cigs <- lm(cigs ~ income, data = smoke)
+
+smoke$fitted <- reg_cigs$fitted.values
+smoke$residuals <- reg_cigs$residuals
+
+smoke |> ggplot(aes(x = fitted, y = residuals)) +
+  geom_jitter(color = colordark, height = 5) +
+  geom_hline(yintercept = 0, color = colordark2, linetype = "dashed") +
+  theme_minimal() +
+  labs(title = "Residuals vs Fitted Values - Heteroskedastic Data",
+       x = "Fitted Values",
+       y = "Residuals")
+```
+
+See how the shape of the residual plot looks a bit like a cone, with less vertical spread on the left and a lot more vertical spread on the right?  This is evidence of heteroskedasticity.  The residual plot doesn't have to strictly be cone shaped for there to be heteroskedasticity, though that is the most common. Something that looks like a bow tie, or points scattered around a curved or sloped line would be considered heteroskedastic as well. Basically, any shape that isn't a lot like that nice, neat rectangle from the `TeachingRatings` data above exhibits heteroskedasticity.   
+
+The bad news is that, for the most part, academic economists simply assume that heteroskedasticity is always present. The good news is that there is a fairly simple and straightforward fix to it: calculating **robust standard errors**. In fact, nearly every regression in every academic journal will report robust standard errors as a matter of course. In R, we can get this from the `lmtest` library. If you haven't already, install and load the `sandwich` library and use `coeftest` function with the `vcovHC` option.
+
+```{r}
+reg_beauty_robust <- coeftest(reg_beauty, vcovHC)
+reg_beauty_robust
+```
+
+We can compare this result side-by-side with the original regression:
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+stargazer(reg_beauty, reg_beauty_robust, type = "html")
+```
+
+It's a bit tough to see here, but the coefficients didn't change at all, and they shouldn't. The only change is in the standard errors (the numbers in the parentheses) underneath the coefficients. Because the standard errors change (they could go up or down!), the significance of the coefficients may change as well. In the example above, you can see that the standard error on the $\hat{\beta}$ for `beauty` increased by .001.  
+
+Let's take a look at a more pronounced example; we will use the `infmrt` infant mortality data in the `wooldridge` package. This next bit of code estimates infant mortality, `infmort`, as a function of the share of families receiving Aid to Families with Dependent Children (AFDC) and the number of physicians per capita. I then show those results side-by-side with the same regression corrected for heteroskedasticity.
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+reg_infmrt <- lm(infmort ~ afdcper + physic, data = infmrt)
+reg_infmrt_robust <- coeftest(reg_infmrt, vcovHC)
+stargazer(reg_infmrt, reg_infmrt_robust, type = "html")
+
+```
+
+Again, compare the columns. The coefficients do not change, but the standard errors do. And, as stated above, this can have the effect of changing the significance of one or more of your coefficients; in this case, physicians per capita went from having a significant (at the 1% level!) relationship with infant mortality to having an insignificant relationship because the standard error increased from 0.003 to 0.008!
+
+If a model is not heteroskedastic and doesn't have autocorrelation, it is said to have **spherical errors** and the error terms are **IID** (Independent and Identically Distributed).
+
+There is a lot of math going on in the background here, but let me try to give sort of a folksy, more intuitive description of what is going on here.  Imagine you are learning to drive, and you have two driver's ed teachers.  Both instructors, *on average*, drive right down the middle of the lane. But one instructor stays steady and smooth, always more or less in the middle of the lane. The other swerves like an NASCAR driver breaking his tires...sometimes hugging the left line, sometimes the right line, but still averaging out to the middle. If you want to learn how to drive straight, who should you watch? Obviously the steady one! Even though both instructors have the same "average" position, you'd trust the consistent driver way more than the swervy one. That's what robust standard errors do. When your data has some steady, predictable parts and some swervy, all-over-the-place parts, the correction essentially says "let's pay more attention to the steady parts when figuring out our relationship, those are the ones we can trust more." It's a mathematical way of saying "trust the calm driver, not the guy emulating Ricky Bobby. Shake and Bake!" 
+
+::: callout-tip
+###### Data Storytelling: Why Economists Care More About This Than Data Scientists
+
+Remember our discussion in @sec-basicreg about predictive modeling vs hypothesis testing? This is a perfect example of where that distinction matters.
+
+If you're doing predictive modeling, robust standard errors don't change your game at all. Your predictions are identical whether you use them or not...the fitted values don't budge because your coefficients are completely unaffected by the issue of heteroskedasticity. A data scientist building a recommendation engine or forecasting model might skip this step entirely since they care about prediction accuracy, not statistical significance.
+
+But economists and social scientists usually care more about hypothesis testing. We want to know: "Does this policy actually work?" or "Is this relationship real or just noise?" When you're trying to influence policy or understand causal relationships, getting the significance tests right becomes crucial. That's why academic economics papers almost always use robust standard errors as standard practice - we need to be confident about our inferences, not just our predictions.
+:::
+
+## Assumption 6: No Independent Variable is a Perfect Linear Function of other Explanatory Variables
+
+
+This one is important and will probably create quite a few headaches for you when we get to regression with categorical independent variables in @sec-categoricalIV.  Let's introduce the concept quickly here though.  
+
+At its core, ordinary least squares works by attributing the variation in the dependent variable (Y) to the variation in your independent variables (the Xs).  If you only have one independent variable, it's pretty straightforward; technically, in a bivariate regression, $\hat{\beta} = \frac{cov(X,Y)}{var(X)}$. But if you have more than one independent variable, it's far more complex and involves matrix algebra and calculus. At the same time. Yikes! Intuitively, OLS is going to try to figure out which independent variable to attribute the variation in Y to. If you have two identical independent variables, R cannot distinguish one variable from the other when trying to apportion variation.  If you attempt to estimate a model that contains independent variables that are perfectly correlated, R will attempt to thwart you.  Typically, the way to proceed is to simply remove one of the offending variables.  
+
+So, let's see what happens if I try to run a regression with the same variable twice:
+
+```{r}
+#| warning: false
+#| echo: true
+
+reg_beauty2 <- lm(eval ~ beauty + beauty, data = TeachingRatings)
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+stargazer(reg_beauty2, type = "html")
+```
+
+Thwarted! R doesn't even let me run this--note that beauty is only included in the table once.  So let's trick it into running a regression with two identical variables. I will display the results both with `stargazer` and `summary`, because `stargazer` will do its best to disguise my ineptitude here:
+
+```{r}
+#| error: true
+#| echo: true
+
+
+TeachingRatings$beautyclone <- TeachingRatings$beauty
+reg_beauty3 <- lm(eval ~ beauty + beautyclone, data = TeachingRatings)
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+stargazer(reg_beauty3, type = "html")
+```
+
+```{r}
+summary(reg_beauty3)
+```
+
+Now R is quite displeased with us.  The `stargazer` just has a blank row for `beautyclone`, and the `summary()` is calling me out with that "Coefficients: (1 not defined because of singularities)" line.  R simply dropped the beautyclone variable because it is *impossible* to run a regression with both `beauty` and `beautyclone`.
+
+Let's dig a little deeper into this *linear function* idea.  Assume that you are running a regression with 3 independent variables, $X_1$, $X_2$, and $X_3$.
+
+$$Y = \alpha + \beta_1 X_{1} + \beta_2 X_{2} +\beta_3 X_{3} +\epsilon_i$$
+
+This assumption basically states that:
+
+* $X_1$, $X_2$, and $X_3$ are all different variables.
+* $X_1$ is not simply a rescaled version of $X_2$ or $X_3$.  For example, If $X_1$ is height in inches, $X_2$ can't be height in centimeters because then $X_2 = 2.5 \times X_1$
+* $X_1$ cannot be reached with a linear combination of  $X_2$ and $X_3$. So, if $X_1$ is income, $X_2$ is consumption, and $X_3$ is savings, and thus $X_1 = X_2 + X_3$, you can't include all 3 variables in your equation. This is true of more complicated linear combinations as well; if $X_1 = 23.1 + .2X_2 - 12.4X_3$, you couldn't run that either.  
+
+This probably doesn't seem like it would be an issue. However, this assumption trips up a lot of people who are new to regression, because they are not usually aware that there is another variable hidden in the regression, $X_0$, which carries a value of 1 for every observation. This is technically what the $\alpha$ is multiplied by. So in actuality, your regression model is
+
+$$Y = \alpha X_{0}+ \beta_1 X_{1} + \beta_2 X_{2} +\beta_3 X_{3} +\epsilon_i$$
+
+Since $X_{0}$ is 1, we don't bother writing it out every time, but it is there. Think of it like the Matrix - there's a whole column of code running in the background that you can't see, but Neo knows it's there. And so this means that $X_1$, $X_2$, and $X_3$ **cannot** be constants, because otherwise you will violate this assumption by creating another column of identical values.
+
+Let's see what happens when we include another constant in the teaching evaluation model:
+
+```{r}
+TeachingRatings$six <- 6
+reg_beauty4 <- lm(eval ~ beauty + six, data = TeachingRatings)
+summary(reg_beauty4)
+```
+
+R didn't like the constant in the regression and just chucked it out. Why? Because the variable I called $six$ is literally $X_{0}+5$, which makes it a linear function of the intercept term!
+
+Remember this lesson for when we start talking about dummy variable regressions in @sec-categoricalIV, it's going to be important!
+
+A related issue you might run into is **multicollinearity**, which is where you don't have perfectly correlated independent variables but they are very, very close.  If these correlations are high enough, they generally cause problems. Let's see what happens when we run a regression with multicollinear independent variables. Here, I will use the teaching ratings data and create a new variable called beautyrand which is the value of beauty plus a random number between -0.005 and 0.005. 
+
+```{r}
+#| echo: true
+
+set.seed(8675309)
+TeachingRatings <- TeachingRatings |> 
+   mutate(beautyrand = beauty + runif(463, min = -0.005, max = 0.005))
+cor(TeachingRatings$beauty, TeachingRatings$beautyrand)
+```
+
+You can see that beauty and beautyrand are obviously very highly correlated. Obviously, of course, because that `mutate()` line created `beautyrand` by adding random noice to the `beauty` variable.  But they are not exactly the same, so we can put them in the same regression and we haven't violated our assumption. So, what happens when I run this regression? Weird stuff:
+
+```{r}
+#| warning: false
+#| echo: true
+
+reg_beauty5 <- lm(eval ~ beauty + beautyrand, data = TeachingRatings)
+reg_beauty6 <- lm(eval ~ beautyrand, data = TeachingRatings)
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+stargazer(reg_beauty, reg_beauty6, reg_beauty5, type = "html")
+```
+
+Columns 1 and 2 have the original data and slightly adulterated data, respectively.  Note that the results are very similar, though not identical (the F-Stats are .001 apart!). Now, compare the model with the multicollinearity on the right with the original model on the left. The coefficients are huge in absolute value compared to column 1.  One of the coefficients has the wrong sign.  
+
+Note that if you add the two $\hat{\beta}$s in column 3 together, you get a number very close to the coefficient on beauty in column 1.  This result is typical of models with multicollinearity.
+
+Multicollinearity is a problem, but it is a very easy problem to fix. Just drop one of the collinear variables and the problem is solved!
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| out-width: 40%
+
+knitr::include_graphics("images/easypeasy.jpg")
+```
+
+## Assumption 7: Normality of Error Terms
+
+The last assumption of the regression model is that your error terms are normally distributed.  Violating this assumption is not terrible on its own, but if this assumption is violated it is often a sign that your models might be heavily influenced by outliers or has missing variables. 
+
+An easy way to look for this is the Q-Q plot, which takes the residuals of your distribution, orders them from lowest to highest, and compares them to what those residuals would look like if you had a normal distribution.  The `qqnorm()` lines up all your dots, and the `qqline()` shows where those dots would be if your residuals were perfectly normal. The intuition here is that we **know** that the model won't predict with 100% accuracy. Some observations will outperform, some will underperform. Some over-performers beat the model by a little, some by a lot. Again, fine. All that is to be expected. But: do the over-performers beat the model by as much as expected? That's the sort of question we are looking at here.  
+
+This is the same kind of logic you see everywhere in the real world. Casinos know some people will have lucky nights and some will have unlucky nights. That's to be expected. But if someone is winning way more than the laws of probability suggest they should, that's when security starts watching for card counting or cheating. Similarly, auditors know that some accounting errors will happen, but if the errors are too systematic or too extreme, that signals something fishy is going on. Q-Q plots are basically asking: "We know the model won't be perfect, but is there something fishy about the imperfections?"
+
+Let's look at a Q-Q plot of the beauty regression:
+
+```{r}
+qqnorm(reg_beauty$residuals)
+qqline(reg_beauty$residuals)
+```
+
+Most of the points lie on the `qqline`, with a downward bend a at the tails. This tells us that our beauty-evaluation model works quite well for the vast majority of professors - the linear relationship captures the typical pattern effectively. The deviations we see are only at the extremes: on the left side, we have a few people who underperformed the model more severely than a normal distribution would predict, and on the right side, we see people who overperformed the model but not by as much as normal theory would expect. Most likely these are less conventionally attractive professors who are genuinely excellent teachers and are constrained by the 5.0 evaluation ceiling. Overall, this suggests our simple linear model does a solid job capturing the beauty-evaluation relationship, with the main limitation being the evaluation scale's upper bound that prevents outstanding teachers from showing their full impact in the data.
+
+This Q-Q plot shows some minor deviations but overall looks pretty good - most points are on the line, and the deviations we do see make sense given the bounded nature of evaluation scores. While we might have some missing variables (teaching ability, charisma, course difficulty, etc), our simple beauty model isn't doing too badly, at least in this regard. But what does it look like when a model is really missing important stuff? Let's take a look at one more regression; the quadratic housing price data from above.  
+
+```{r}
+qqnorm(reg_house2$residuals)
+qqline(reg_house2$residuals)
+```
+
+Most of the points lie on the `qqline`, but we have a lot more departures at both tails, some pretty dramatic. This tells us our $price = age + age^2$ model is missing something important. On the left side, we have houses that underperformed the model, but not nearly as badly as a normal distribution would predict. That line sitting above the `qqline` between Theoretical Quantiles -2 and -1? If the distribution were normal, they should sell for \$40,000 - \$70,000 less than predicted, but they're more like only \$20,000 - \$30,000 below. Looking at these underperformers reveals why: there's a 188-year-old house that's probably a teardown candidate, plus several new houses that are small, have tiny lots, or sit way out from downtown. But here's the thing - even terrible houses have some baseline value from their land, and the truly awful ones probably never make it to market at all because selling them wouldn't be worth the hassle. On the right side, things get wild: we see houses that massively outperformed the model - the model thinks the biggest overperformers should be worth maybe \$90k more than predicted, but they're actually worth close to \$200k more than the model suggests. The biggest overperformer? A house sitting on 282,704 square feet - that's 6.5 acres! - which we completely ignored in our model. This Q-Q plot isn't just showing non-normal errors; it's screaming that we're missing crucial variables like house size, lot size, and distance from downtown.
+
+::: callout-tip
+###### Data Storytelling: The Errors Aren't the Problem
+
+Weird Q-Q plots aren't the disease, they're just a symptom. Non-normal residuals often point to bigger issues: outliers driving your results, heteroskedasticity, missing variables, or non-linear relationships you haven't captured. 
+
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| out-width: 60%
+#| fig-alt: "Conspiracy Charlie: The Always Sunny string-board meme with Charlie pointing at connections between Q-Q plot problems, Outliers, Missing variables, Heteroskedasticity, Non-linear relationships, with the caption: IT'S ALL CONNECTED!"
+
+knitr::include_graphics("images/conspiracy_charlie.jpg")
+```
+
+When you see dramatic Q-Q departures like in our housing example, that's your model crying for help. The normality violation is just the canary in the coal mine though.  Before you worry about normality violations, ask yourself: What important factors am I not measuring? Are there outliers I should investigate? Do I need  non-linear relationships?
+
+The good news is that if your sample size is reasonably large (n > 50 or so), the Central Limit Theorem has your back - your coefficient estimates and standard errors will be approximately correct regardless of whether your errors are perfectly normal. Focus on building better models, not passing normality tests.
+
+:::
+
+## Wrapping Up
+
+This book is focused on learning the basic tools of econometrics; in line with that goal, I am totally aware that I did a considerable amount of handwaving (or straight up ignoring) with respect to some serious econometric issues. It is hard to draw the line in the sand between introductory econometrics and intermediate/advanced material, but that's what I'm attempting to do here.
+
+For those interested in pursuing careers in econometrics or business/data analytics, digging more deeply into these issues is essential. In the final chapter, Chapter @sec-nextsteps, I list some suggested resources for those who wish to dig deeper into R or econometrics; many of the econometric suggestions in that section take much more comprehensive approaches into some of the issues presented here and would be excellent next steps for a reader interested in attaining a deeper understanding of econometrics.  
+
+Now that you've survived your first encounter with regression assumptions and diagnostics, it's time to tackle something new. So far we've worked with continuous independent variables, but the real world is full of categories too; male vs female, married vs unmarried, etc.  Next, we'll learn how to incorporate these categorical variables into our regression models.
+
+## Exercises
+
+Data Transformation and Non-Linear Relationships:
+
+1. Using the `wooldridge:wage1` dataset, examine the relationship between experience (`exper`) and wages (`wage`). Create scatterplots for both the linear relationship and a quadratic relationship (include both `exper` and `I(exper^2)`). Which model fits better? At what level of experience do wages start declining (if at all)?
+
+2. Using the `wooldridge:hprice1` dataset, explore the relationship between house size (`sqrft`) and price (`price`). Try linear, log-linear, linear-log, and log-log specifications. Which transformation provides the best fit? How do you interpret the coefficients in each case? Realtors often think about houses as being over-/under-priced based on the heuristic of "price per square foot," which would imply that they base their thought process around the idea that the right model is a linear model with $\alpha = 0$.  What would you say to that, at least with respect to Boston in the late 1980s?
+
+Testing Assumptions:
+
+3. Using the `wooldridge:sleep75` dataset, run a regression of total sleep time (`sleep`) on work time (`totwrk`) and age (`age`). Create residual plots to check for heteroskedasticity. Then create robust standard errors and compare the results. Do any of your conclusions about statistical significance change?
+
+4. Using the `AER:MASchools` dataset, create a model predicting 4th grade test scores (`score4`) using student-teacher ratio (`stratio`) and expenditures per student (`exptot`). Check the Q-Q plot for normality violations. Attach the residuals to your dataset (use the technique up in the code for Assumption 2!), then use data wrangling techniques from @sec-wrangling to examine the 5 or 10 schools with the largest positive and negative residuals. What patterns do you notice between the best and worst performers relative to the model's predictions?
+
+Serial Correlation:
+
+5. Go back and grab the code that we used to download and generate the stock data in @sec-basicreg. Pick one of the stocks (NVIDIA, ExxonMobil, or choose any stock you want, really, you just need to know the NYSE ticker), modify the code to grab at least 5 years of data, and determine whether it shows serial correlation. You'll need to adapt the code from both chapters. Compare what you produce to the S&P 500 data in the text.  Is the pattern similar or different? 

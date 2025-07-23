@@ -1,0 +1,521 @@
+# Literate Programming {#sec-litprog}
+
+Have you ever been working on a report where you needed to move stuff from Excel into Word or PowerPoint? It's the worst, right? Tables that looked perfect in Excel suddenly lose all their formatting. Charts need to be screenshot, cropped, and pasted-and they still look awful, because the fonts don't match, the sizes are slightly off, the pictures are fuzzy, etc.
+
+And let's talk about what happens when your data changes. You know the drill: open Excel, update your numbers, regenerate your chart, take a new screenshot, crop it again (slightly differently this time, of course), then hunt through your document to find all the places where you need to paste the new version. Oh, and don't forget to update any text that references specific numbers from your analysis. "The average was 42.3" now needs to be "The average was 43.7"... but did you catch all of them? Good luck with that.
+
+I've been there too. I once got so frustrated with this back-and-forth that I tried writing an entire research paper in Excel. (Spoiler alert: Excel is not a word processor. It did not go well.) I've also spent hours formatting tables in Word, only to realize that not all of my tables were consistent in their rounding conventions (some rounded to two decimal places, others rounded to three), which meant I needed to start fresh on half of them. Ugh!
+
+The problem is obvious-we need the calculation power of spreadsheet software combined with the formatting capabilities of document or presentation software. We need a way to do our analysis AND write our text in the same place, so everything stays connected and consistent. Wouldn't it be nice if we could just say "calculate the average of this column" right in the middle of a sentence, and have the correct number appear automatically? Or create a beautiful chart with actual code instead of clicking through endless menus, and have that chart update itself when the underlying data changes?
+
+The good news? This dream workflow actually exists-and it's available right here in R! What we need is an example of what is known as *Literate Programming*. The concept, introduced by Donald Knuth in 1984 [@knuth1984], is pretty simple: combine code and regular writing in a single document. Your analysis and your narrative live together, so when one changes, the other updates automatically. No more copy-paste nightmares, no more inconsistent rounding between tables, no more hunting through your document to update all those numbers by hand!
+
+In the R world, there are tools designed specifically for this purpose. For years, **RMarkdown** was the go-to solution, but since 2022, it's been largely replaced by **Quarto**—a more powerful system developed by Posit (the company behind RStudio). Quarto is what I used to create this entire book, and in this chapter, I'll show you how it can make your data-driven documents both easier to create and better looking.
+
+## Quarto
+
+So, what is Quarto, and how do you use it? Basically, it's a file type that allows you to mix normal writing with code and spits out a single document. This chapter will guide you through the basics of using Quarto [@quarto]. If you want more details on Quarto, you can check out their website at <https://quarto.org>. And if you want a deeper dive than what is in this chapter, the official Quarto guide is really useful (<https://quarto.org/docs/guide/>) [@quarto2024guide].
+
+Quarto can create all kinds of documents-HTML web pages, PDFs, Word documents, PowerPoint slides, interactive dashboards, and more. For simplicity's sake, we'll focus on HTML documents in this chapter since they're the most versatile and easiest to get started with. For many of you, HTML may sound like a foreign concept, but it's probably the file type that you have experienced the most often in your life! HTML is the file type that web browsers display. So, when you make an HTML file with Quarto, you're basically creating your own mini-website!
+
+While Quarto documents can create a bunch of different types of files, the Quarto file itself lives on your computer as a .qmd file. Let's jump right in and create a Quarto document:
+
+1.  In RStudio, go to File $\rightarrow$ New File $\rightarrow$ Quarto Document
+2.  A dialog box will appear asking for some basic information
+3.  Give your document a title (like "My First Quarto Document")
+4.  Add your name as the author
+5.  Make sure HTML is selected as the output format
+6.  For now, leave the "Use visual markdown editor" box unchecked (I'll explain why in a minute)
+7.  Click "Create"
+
+Congratulations! You've just created your first .qmd file. But wait—it already has some content in it. What's all this?
+
+### Anatomy of a Quarto Document
+
+Let's talk about the architecture of a quarto document. Each quarto document generally has 3 types of sections:
+
+-   [YAML]
+
+    -   The YAML is the section at the very top surrounded by three dashes (`---`) on both sides. YAML stands for "Yet Another Markup Language" and it is like the control panel for your document—it tells Quarto how to format your final output. You only have one YAML section per document, and it's always at the top
+
+-   [Markdown Language]
+
+    -   The main body of your document is written in markdown language. If you've ever used a simple text editor but wanted to add some formatting, that's basically what markdown is. Instead of clicking buttons for bold or italics, you wrap text in special symbols. For example, wrapping a word with asterisks (\*) will make it appear in italics in the final document; if your markdown file says \*econometrics\*, it will appear in print as *econometrics* in the final version.
+
+-   [Code Chunks]
+
+    -   Incorporating code, and its results, is the star feature of Quarto. Code goes into something called a **code chunk**. While Quarto can be used with more than just R (e.g. Python, Julia, etc), the focus here will be on R chunks. You can identify a code chunk in the code because it starts with ```` ```{r} ```` and it closes with ```` ``` ````.
+
+To transform the .qmd file into the final result, you need to **Render** it. The keyboard shortcut to render a .qmd file is ctrl-shift-k (cmd-shift-k on a Mac), and if you have a .qmd file open in your editor pane, you should see a render button on the toolbar over your document. The process or rendering your file saves the .qmd file, and the rendered (HTML, PDF, etc) file automatically winds up in the directory that your .qmd file is in.
+
+Quarto will work its magic, running all your code and formatting your text, and create an HTML file in the same folder as your .qmd file.
+
+::: callout-tip
+###### Tip from the Helpdesk: Projects Make Perfect
+
+It's a good habit to work with Quarto documents in an RStudio Project. Why? Because when you render a .qmd file, the output goes in the same folder as the source file. If you don't use a project, you might end up with rendered documents scattered all over your computer.
+
+Remember the Projects tip from @sec-basicR? This is exactly why they're so valuable. If you haven't created a project yet, flip back to that section for a quick refresher on how to set one up. Your future self will thank you when you're not playing hide-and-seek with your files!
+:::
+
+In the next sections, we'll dive deeper into each of these components, starting with the YAML header.
+
+## YAML
+
+The YAML controls many of the general settings of your document. The nearly universally chosen things (technically you don't *need* a YAML, but going without one is more of the "hold my beer" approach and is better left for later as more of an advanced technique) to include in your YAML are typically generated with the new Quarto Document dialog box:
+
+-   Title - The name of your document, it shows up at the top in big letters.
+
+-   Author Name - Hey! That's you! This also shows up in your document, just under the title.
+
+-   Default editor type - the two options are source and visual. Don't stress this choice too much, you can easily switch between the two on the fly with the buttons on your editor window toolbar. Personally, I often switch between the two frequently while working on a document!
+
+-   Output document format - the default is an HTML document, but other options include PDF, Word, and various slideshow formats.
+
+While these are the basics you need to get started, here are a few additional options you will generally want:
+
+-   Table of Contents - Essentially a clickable navigation menu, including this is a great addition to an HTML file. Quarto will make this for you automatically based on your headers (we'll talk about this in the section on [Markdown Language]), it adds a touch of refinement and requires almost no extra work! Specify that you want one by including the following code under your `html:` options:
+
+    -   `toc: true`
+
+-   Stand-Alone file options - If you want to send documents as a single HTML file and not worry about sending all the pictures, tables, equations, etc inside the HTML file separately (spoiler alert: you probably do!), add this under your `html:` options. They make the files larger, but without these options your final products may be missing things:
+
+    -   `embed-resources: true`
+
+-   Code Chunk Defaults
+
+    -   More on this when we get to the section on [Code Chunks], but these let you set a default way for Quarto to deal with the R code you include in your report. For example, let's say you are making a document that includes a dozen graphs. Do you want the body of the text to show the reader what the code was that generated the graphs (appropriate for homework or rough drafts), or do you want the final report to only have the polished graphs (appropriate for term papers and slick presentations)?
+
+-   Themes
+
+    -   Quarto has a bunch of built in themes to make your document look snazzy, which you can set using `theme:` under the `html:` option. Play around with these to see if there is one you particularly like. You can also click the links below to see what they look like in a sample document:
+        -   [default](https://bootswatch.com/default/)
+        -   [cerulean](https://bootswatch.com/cerulean/)
+        -   [cosmo](https://bootswatch.com/cosmo/)
+        -   [cyborg](https://bootswatch.com/cyborg/)
+        -   [darkly](https://bootswatch.com/darkly/)
+        -   [flatly](https://bootswatch.com/flatly/)
+        -   [journal](https://bootswatch.com/journal/)
+        -   [litera](https://bootswatch.com/litera/)
+        -   [lumen](https://bootswatch.com/lumen/)
+        -   [lux](https://bootswatch.com/lux/)
+        -   [materia](https://bootswatch.com/materia/)
+        -   [minty](https://bootswatch.com/minty/)
+        -   [morph](https://bootswatch.com/morph/)
+        -   [pulse](https://bootswatch.com/pulse/)
+        -   [quartz](https://bootswatch.com/quartz/)
+        -   [sandstone](https://bootswatch.com/sandstone/)
+        -   [simplex](https://bootswatch.com/simplex/)
+        -   [sketchy](https://bootswatch.com/sketchy/)
+        -   [slate](https://bootswatch.com/slate/)
+        -   [solar](https://bootswatch.com/solar/)
+        -   [spacelab](https://bootswatch.com/spacelab/)
+        -   [superhero](https://bootswatch.com/superhero/)
+        -   [united](https://bootswatch.com/united/)
+        -   [vapor](https://bootswatch.com/vapor/)
+        -   [yeti](https://bootswatch.com/yeti/)
+        -   [zephyr](https://bootswatch.com/zephyr/)
+
+::: callout-tip
+###### Tip from the Helpdesk: You Need to Give the YAML Space!
+
+YAML is super finicky with regards to tabs and spacing. For example, below is the YAML for a Quarto handout I once gave my class:
+
+```{r}
+#| eval: false
+
+title: "Notes for Quarto"
+author: "Matt Dobra"
+format: 
+  html:
+    theme: sandstone  
+    embed-resources: true
+    toc: true
+    html-math-method: katex
+    self-contained-math: true
+editor: visual
+bibliography: references.bib
+
+```
+
+The indentation in this document is actually serving a purpose-it is creating a hierarchy. I have specified `html:` as the `format:`, and the five lines under `html:` modify the `html:`. If I get rid of all the tabs (indents) in the YAML, and try to render with the following YAML, Quarto will throw a little tantrum and refuse to render the document:
+
+```{r}
+#| eval: false
+
+title: "Notes for Quarto"
+author: "Matt Dobra"
+format: 
+html:
+theme: journal  
+embed-resources: true
+toc: true
+html-math-method: katex
+self-contained-math: true
+editor: visual
+bibliography: references.bib
+
+```
+
+Even though the text is identical between the two documents, the tabs are different and that makes all the difference here. The tabs tell the [YAML] what parts of the code are subsets of something else.
+:::
+
+While the [YAML] is the first thing in your Quarto document, it is usually the thing you spend the least amount of time on. The [YAML] header controls how your document looks and behaves, but these settings will make more sense to you as you work with what you're actually formatting. The main body of every Quarto document alternates between sections written in [Markdown Language] for your narrative and [Code Chunks] that execute your R code.
+
+## Markdown Language
+
+Following the YAML, you will generally be switching between using [Markdown Language] and [Code Chunks]. The [Markdown Language] sections are where the text of your document appears, and you have two options on how to write it: using the visual editor or the source editor.
+
+If this book is your first foray into coding of any sort, you will probably be more comfortable with the visual editor, as editing in the visual editor mode is quite reminiscent of the sort of format editing you might find in any number of web-based platform like Google Docs, Gmail, Reddit, and so forth.
+
+Within the visual editor, you can modify text just like you would in a word processor - select it and use one of the options in the formatting ribbon to change how it looks, or use normal keyboard shortcuts (e.g. ctrl-b is bold, ctrl-i is italics, etc.). You can also do things like create bulleted lists, insert pictures, and more.
+
+You may, at first glance, be underwhelmed by the visual editor. You might think it feels a bit like a barebones version of a word processor. And honestly, that's a fair assessment. For basic stuff-that is to say, writing documents that aren't going to include R code in them-you may prefer Word as a simpler solution. After all, it's a lot easier to collaborate with normies using Word or Google Docs than it is in R! However, much of the power of the markdown language is more useful in doing research; for example, Quarto can automatically write bibliographies and do inline citations for you, if you invest a little time learning about it. In my opinion, these things are a lot easier to do well in Quarto than in Microsoft Word.
+
+Because the visual editor is fairly straightforward and similar to editors you might have used before (Word, text editors on online message boards and Canvas/Blackboard classrooms, etc), I do not feel the need to go into great detail here on the basics. Instead, let me give you a few useful tips that are unique to writing Quarto documents.
+
+### Source Editor Basics
+
+If you choose to work in the source editor (or just want to understand what's happening behind the scenes in the visual editor), here are the most common markdown formatting codes you'll use:
+
+-   Headers: Use `#` symbols at the beginning of a line. More `#` symbols mean lower level headers:
+
+    -   `# Main Header` (equivalent to Header 1)
+
+    -   `## Section Header` (equivalent to Header 2)
+
+    -   `### Subsection Header` (equivalent to Header 3)
+
+-   Text Formatting:
+
+    -   `*italic text*` or `_italic text_` for *italic text*
+
+    -   `**bold text**` or `__bold text__` for **bold text**
+
+    -   `~~strikethrough~~` for ~~strikethrough~~
+
+    -   `` `code` `` for `code` formatting
+
+-   Lists:
+
+    -   Unordered lists use `-`, `*`, or `+` at the beginning of a line
+
+    -   Ordered lists use numbers (`1.`, `2.`, etc.)
+
+    -   Indent with spaces to create nested lists
+
+-   **Links and Images**:
+
+    -   `[Link text](URL)` creates a hyperlink
+
+    -   `![Alt text](image-path)` inserts an image
+
+-   **Quotes and Code Blocks**:
+
+    -   Start a line with `>` for a blockquote
+
+    -   Wrap code blocks in triple backticks (\`\`\`) for multiline code
+
+The nice thing about source editing is that once you learn these basics, you can often type faster than clicking through menus in the visual editor. Plus, you'll develop a better understanding of how Quarto documents are structured behind the scenes.
+
+::: callout-tip
+###### May the Format Be With You: Editor Hopping
+
+I find myself switching between the visual and source editors constantly while working. The visual editor is super helpful when you're starting out or when you need to do something you don't do very often (like inserting a table or fancy equation). But for regular writing and basic formatting, the source editor is often quicker once you get the hang of it.
+
+I think most people who use Quarto regularly tend to drift toward the source editor over time. It's typically faster for typing, doesn't lag with bigger documents, and gives you more direct control. That said, there's absolutely nothing wrong with sticking with the visual editor if that's what you prefer!
+
+My advice? Get comfortable jumping back and forth between the two using the buttons at the top of your editor pane. Use whichever one feels right for what you're doing at the moment. Don't be surprised if you find yourself using the source editor more and more as you get better at Quarto - that's a pretty common pattern.
+:::
+
+### Inline Code
+
+Sometimes you want to include R calculations directly within your text as part of a natural flowing sentence. This is called **inline code**, and it's perfect for situations where you want to reference specific values, calculations, or results without breaking the flow of your writing.
+
+For example, instead of writing "The average fuel efficiency was approximately 20.1 miles per gallon," you can have R calculate and insert the exact value automatically. This means when your data changes, your text updates automatically too-no more hunting through your document to manually update numbers!
+
+```{r}
+#| include: false
+
+library(openintro)
+data(cars04)
+
+```
+
+To use inline code, wrap your code with backticks, and put the language name first in curly braces: &#96;{r} code here&#96;. We are using R, but Quarto can work with other languages like Python or Julia too. When you render your document, Quarto will execute the code and replace it with the result. Here are some practical examples; if your [Markdown Language] says:
+
+-   The dataset contains &#96;{r} nrow(cars04)&#96; observations. 
+
+-   The average fuel economy was &#96;{r} round(mean(cars04$city_mpg, na.rm = TRUE), 1)&#96; miles per gallon. 
+
+When rendered, these markdown lines with inline code would appear as:
+
+-   The dataset contains `{r} nrow(cars04)` observations.
+
+-   The average fuel economy was `{r} round(mean(cars04$city_mpg, na.rm = TRUE), 1)` miles per gallon.
+
+Your initial thought might be to wonder about the utility of inline code. Why not just crunch the numbers on the side and type them directly into your text? That's fair, but inline code has a couple advantages.
+
+-   It automatically updates numbers in your text when data changes.
+
+-   It greatly reduces the likelihood of typos.
+
+-   This approach is actually faster if you have a lot of them. For example, if I am going to include in the text the means of all the variables, it's easier to copy and paste the code and change the variable name than to calculate every mean and type it in.
+
+-   For systematic report writing, where you write the same report repeatedly just with different data, this saves a ton of time.
+
+You generally want to keep your inline code super simple-basic calculations and single values only. If you need to do something more complex, that's where [Code Chunks] (discussed next) come in.
+
+### Use header styles, not large bold fonts to create sections.
+
+Don't use bold/font size for section headers. Instead, use header formats, either in the source editor with octotharpes (`#`), or in the visual editor via the dropdown box that usually says "Normal" to choose "Header 1", "Header 2", etc. This enables Quarto to automatically create an interactive table of contents for your documents. It also creates the ability to have interactive tags in your documents so the reader can click on a link to take them to different part of the document. Additionally, it is useful for the outline feature to the right of the editor in RStudio, so you can easily navigate your document while working on it.
+
+Admittedly, this is far more useful in large documents than in shorter reports or homework, but if good habits are no harder to do than bad habits, why not do it the way that's better in the long run?
+
+### Equations can be typeset using LaTeX
+
+Mathematical equations can be be typeset beautifully in R. The easiest way to create an equation is via the visual editor using the insert menu $\rightarrow$ LaTeX Math - it's worth spending a little time learning some basic math typesetting. You can also create equations via the source editor by wrapping your LaTeX typesetting with dollar signs.
+
+Here are a few of the essential LaTeX formatting styles that are particularly useful in statistics:
+
+-   basic Greek Letters (typically a \\ followed by the name of the letter) -- some examples
+    -   `\alpha` gives $\alpha$
+    -   `\beta` gives $\beta$
+    -   upper and lowercase sigma come from `\Sigma` and `\sigma`, respectively ($\Sigma$ and $\sigma$).
+-   subscripts and superscripts
+    -   `x_1` is $x_1$
+    -   `\beta_1` is $\beta_1$
+    -   `x^2` is $x^2$
+    -   by default you only get your first character after the \_ or \^ to be sub- or superscripted, so for more complicated stuff you need to include curly braces
+        -   `x^{10}` is $x^{10}$
+        -   `\beta_{13}`is $\beta_{13}$
+-   accents like hats and bars
+    -   `\bar{x}` is $\bar{x}$
+    -   `\hat{\beta}` is $\hat{\beta}$
+    -   `\hat{\beta_{11}}` is $\hat{\beta_{11}}$
+-   fractions
+    -   `\frac{1}{4}` is $\frac{1}{4}$
+    -   `Z_i = \frac{x_1 - \bar{x}}{\sigma_x}` is $Z_i = \frac{x_1 - \bar{x}}{\sigma_x}$
+
+Your LaTeX typesetting only works inside a LaTeX math block, which you can create either by inserting it into a document from the visual editor or by wrapping your LaTeX code inside of dollar signs. If you look at the math inside the source viewer, you will see it wrapped inside the dollar signs. For example, if you looked at the source code for $\beta_1$ you would see `$\beta_1$`.
+
+As you may have noticed, these typesetting options can be mix-and-matched to create some elaborate equations. We can add these techniques to other math typesetting options that you can find online to get some impressive stuff! For example:
+
+The bivariate OLS equation:
+
+$$y_i = \hat{\alpha} + \hat{\beta}X_i + e_i$$
+
+The normal distribution:
+
+$$X \sim \mathcal{N}(\mu,\sigma^2) \\ f(x)=\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{1}{2}(\frac{x-\mu}{\sigma})^{2}}$$
+
+::: callout-tip
+###### May the Format Be With You: Equations make your YAML Grow
+
+If you are going to include LaTeX math in an html file, and you want a self-contained file (e.g. you specified `embed-resources: true` above), you need to include more options in your YAML because Quarto treats the math stuff differently from the images and charts. To make this work, add the following lines to your YAML under the `html:` formatting options:
+
+```{r}
+#| eval: false
+
+format:
+  html:
+    (other html options)
+    html-math-method: katex
+    self-contained-math: true 
+
+```
+:::
+
+## Code Chunks
+
+Incorporating code, and its results, is the star feature of Quarto. It's why we fired up RStudio instead of Word, Powerpoint, or Excel! The part of a Quarto document where we insert code is called a **code chunk**. While Quarto can be used with more more languages than just R (e.g. Python, Julia, etc), the focus here will be on R chunks. The easiest way to start a code chunk in the visual editor is, on an empty line, hit the / button and the first option is likely an r chunk. Alternately, the keyboard shortcut `ctrl-alt-i` creates a code chunk as well. In the source viewer this looks like three backticks followed by {r} (```` ```{r} ````), and the chunk is closed below with three more backticks (```` ``` ````). Once RStudio recognizes the code chunk, it adds three icons to the top right corner of it; a gear icon that lets you set chunk options, and two run options-the down arrow runs all code chunks above it and the right arrow runs that particular chunk.
+
+Two things happen inside a code chunk: chunk options and code:
+
+-   Code: This will typically be data tasks; data wrangling, statistical analysis, constructing graphs, and the like.
+
+-   Chunk Options: The options specify how Quarto will include your R work into your final document. Do you your final document to show your code or just the results? Or neither? Do you want your final document to include your code but not actually *run* the code? This is what chunk options control.
+
+This chapter will not focus so much on the code as it will on the options; the rest of the book is about learning how to write the code that goes into the code chunks, and as this chapter is about making pretty documents, what we really want to focus on here is how to control what R does (and does not) include in the rendered document.
+
+Options are specified in one of three different ways. First, all options have a default. If you don't specify anything at all, Quarto has a default behavior which is basically to include everything possible in your Quarto document: the code, the results, any messages or warnings you get. You *usually* don't want this behaviour, which is why we are going to take a deeper look at chunk options. The second way you can set your chunk options is by changing the default options for your document via the [YAML]. I'll talk more about this option in a **May the Format Be With You** tip below. The third way you can set a chunk option is by specifying it at the top of your code chunk before your actual code.
+
+Some of the most common chunk options can be selected with the gear icon, and you can see the chunk options declared for any a particular chunk in both the source and visual editors; they appear at the top of the chunk on lines that start with a `#\|`, a.k.a. a "hash pipe." Yes, that's the actual name, not another one of my off-color jokes!
+
+Let's start by going through some of the most useful options for your hash pipes, and I'll talk about a couple typical use cases below. Useful options for your hash pipes:
+
+### Display Options (How your code appears)
+
+-   `#| echo:` - Controls whether your code shows up in the final document.
+
+    -   `true` (default): Shows your code. Perfect for homework, tutorials, or methodology explanations, collaboration.
+
+    -   `false`: Hides your code. Usually you want this for formal reports or presentations.
+
+-   `#| code-fold:` - Gives readers the option to peek at your code if they want.
+
+    -   `false` (default): Code always visible.
+
+    -   `true`: Code is hidden initially but it can be shown with a click. This is ideal for documents where some readers might want technical details, or turning in homework. It's the default in this book!
+
+### Execution Options (How your code runs)
+
+-   `#| eval:` - Controls whether the code executes.
+
+    -   `true` (default): Runs the code. Use for most normal situations. Most of the time you want this.
+
+    -   `false`: Skips execution. Useful when you're showing code that would crash spectacularly, take forever to run, or requires stuff your readers don't have.
+
+-   `#| include:` - Controls whether any output at all from the chunk appears in the document.
+
+    -   `true` (default): Shows whatever the chunk produces in your document.
+
+    -   `false`: Runs the code silently in the background but doesn't put it anywhere in your fiinal document. This is actually quite useful for proper papers to hide all the data wrangling nobody wants to see, loading packages, and behind-the-scenes calculations.
+
+### Output Options (How results appear)
+
+-   `#| message:` - Controls whether informational messages show up in your document.
+
+    -   `true` (default): Shows all messages from your code. You'll see package loading notifications and other information R wants to tell you.
+    -   `false`: Hides these messages. Great for keeping your document clean, especially when loading packages that like to announce themselves-`tidyverse` [@tidyverse], I'm looking at you!
+
+-   `#| warning:` - Controls whether warnings appear in your final document.
+
+    -   `true` (default): Shows any warnings your code generates. Useful when debugging or when warnings contain important information.
+    -   `false`: Suppresses warnings in the output. Helpful for final documents when you're aware of the warnings but don't need to share them with readers.
+
+-   `#| output:` - Tells Quarto how to handle what your code produces. A couple examples:
+
+    -   `#| output: asis` - Passes the output through without Quarto's usual formatting. This is essential when using packages like `stargazer` that create their own formatted tables or when you want raw HTML/LaTeX to be interpreted.
+    -   `#| output: fold` - Similar to code-fold but for output - shows a clickable button to expand/collapse the results. Great for extensive output that might otherwise dominate your document.
+
+### Figure and Table Options (Making your visuals presentable)
+
+-   `#| fig-width:` and `#| fig-height:` - Control the dimensions of plots in inches.
+
+    -   Example: `#| fig-width: 8` and `#| fig-height: 6`
+    -   These options help you avoid awkwardly sized graphics - no more squinting at tiny graphs or dealing with images that overwhelm your page.
+
+-   `#| fig-cap:` - Adds a numbered caption to your figure.
+
+    -   Example: `#| fig-cap: "Distribution of Residuals"`
+    -   Automatically creates "Figure 1: Distribution of Residuals" and correctly numbers all your figures in sequence. This is expected in formal papers and makes your document look properly structured.
+
+-   `#| tbl-cap:` - Adds a numbered caption to tables.
+
+    -   Example: `#| tbl-cap: "Regression Results"`
+    -   Works just like figure captions, creating "Table 1: Regression Results" with automatic numbering. Particularly useful when you have multiple statistical tables and need to reference them in your text.
+
+### Organization Options (For keeping things manageable)
+
+-   `#| label:` - Gives your chunk a meaningful name.
+
+    -   Example: `#| label: import_data`
+
+    -   No default. While it seems trivial when you start, labels become incredibly helpful for navigating larger documents and tracking down errors. For example, if you have an error in one of your code chunks, Quarto will give you an error telling you which code chunk was problematic. And the error message "in chunk 'import_data'" is much more useful than "in unnamed chunk #69".
+
+::: callout-tip
+###### May the Format Be With You: Advanced Tip: Cross Referencing
+
+There is another cool benefit of using labels in your chunk options; if you can learn a few naming conventions, you can use them to generate clickable cross references within your final paper! Here's how it works.
+
+Let's say you have 4 graphs in your paper. And you give all of those graphs labels that begin with the prefix `fig-`, so maybe you have `#| label:fig-boxplot`, `#| label:fig-histogram`, `#| label:fig-bargraph`, and `#| label:fig-scatterplot`. You also named them with `#| fig-cap:`, so your boxplot is labeled with "Figure 1:", your histogram with "Figure 2:", and so forth.
+
+The fact that you gave the code chunks that create graphs labels that begin with the prefix `fig-` tells Quarto that these code chunks create `Figures` and creates anchors in your document by those figures, so if you want to refer to one of the figures in your paper, you can do so with `@` followed by the label name. So your markdown code might look like:
+
+A visual inspection of the histogram in \@fig-histogram shows that the data is right-skewed.
+
+But when this renders into a document, the \@fig-histogram will be replaced by the words Figure 2, *and* Figure 2 will be a clickable link and by clicking it, the reader will be taken directly to Figure 2 in your document. You can even link to it multiple times, so maybe you have a reference to \@fig-histogram not only in your discussion of the data, but also reminding readers about \@fig-histogram in the conclusion.
+
+Pretty slick! The other really useful label prefixes to know early on are `tbl` for tables, `lst` for lists, and `eq` for equations.
+
+Early on in the process of learning how to use Quarto, I wouldn't worry too much about this sort of functionality. But once you start to master the basics of Quarto, the jump to really slick interactive work is pretty easy to make!
+:::
+
+### Document Evolution and YAML Settings {#sec-litprog-docevol}
+
+One of the best things about Quarto is how easily a document can transform from one purpose to another. A document that starts as your personal exploration can evolve into a team collaboration tool, then into a formal paper-often with just a few changes to the YAML header.
+
+Let's look at how you might evolve a document through its lifecycle by changing your YAML settings:
+
+#### Stage 1: Data Exploration (Just for You)
+
+When you're first digging into your data, you want to see everything—code, outputs, messages, warnings. So you might want to set `echo`, `warning`, `message`, etc all to true. Those are the defaults, so you can usually have a pretty lean [YAML] and code options. At this stage, what is most important is to ensure that you are making use of the `#| label:` tag so you can easily find stuff later.
+
+#### Stage 2: Collaboration
+
+By collaboration, I mean either working with others on a project, or perhaps turning in homework. Here, you probably want to maintain the visibility of code, but you want a bit of a cleaner document. You might consider adding the following to the [YAML]:
+
+``` yaml
+format:
+  html:
+    code-fold: true  # Keeps code available but tucked away for cleaner viewing
+    
+execute:
+  message: false     # Hide package loading messages that distract from content
+```
+
+#### Stage 3: Shareable Paper
+
+As your analysis solidifies and you prepare to share with supervisors or reviewers, you want to have a cleaner output:
+
+``` yaml
+format:
+  html:
+    toc: true              # Add a table of contents for navigation
+    embed-resources: true  # Ensures reviewers see everything in one file
+    theme: journal         # Optional: Choose a professional theme you like
+    
+execute:
+  echo: false              # Hide code - focus is now on results
+  message: false           # Hide messages
+  warning: false           # Hide warnings
+```
+
+This is the stage were you want to be concentrating on formatting and labeling your tables and figures by using `#| fig-cap:`, `#| fig-width:`, etc in particular code chunks. You also want to ensure that you set `#| include: false` on code chunks that just load libraries and data wrangle.
+
+## Rendering Your Document
+
+Ultimately, the document is created by **rendering** your document. When you click the **Render** button a document will be generated that includes both content and the output of embedded code.
+
+It may be a mistake to leave the most important note until the last section in the chapter, but it is essential to understand a little bit about how how Quarto operates. Quarto takes the .qmd file, and using a package called Knitr [@knitr] it creates a new markdown file in the background. To do its thing, Knitr opens a fresh version of R in the background to execute all of the code chunks in. From there, this file is passed into Pandoc/Rmarkdown [@rmarkdown], which converts this background markdown file into something like HTML, PDF, etc.
+
+There is something very important that you need to understand about `knitr` opening the fresh version of R. This means that, even if libraries like `tidyverse` are loaded into memory in the instance of R you are coding in, **they are not loaded in the instance of R that Quarto is spawning**. This is also true of data. Data in your current R environment are not loaded into the fresh R instance generated by Quarto. Additionally, it executes the code chunks sequentially. The first chunk gets executed first, the second chunk second, and so forth in order until all the chunks have been executed. Therefore, if your 5th chunk is where you put `library(tidyverse)`, but the third chunk tries to use `mutate()` or `group_by()` or `case_when()`, R will not be able to execute your code.
+
+This means that your Quarto document **needs** to be, in a sense, self contained. Every library that the document relies upon must be loaded with a `library()` call in a code chunk. Every data set that the Quarto document uses needs to be loaded into R via the .qmd file in a code chunk. Every object the Quarto document manipulates needs to be created within the .qmd file. And the order in which the code appears is of paramount importance.
+
+::: callout-tip
+###### Tip from the Helpdesk: Load Required Libraries Early!
+
+Occasionally you will find yourself in a situation where your Quarto document won't render, even though you can execute every single line of code in the Quarto document and get the results you expect. If this is going on, the culprit is typically one of the following three things:
+
+-   you are using a library that you have loaded into R but did not include in your .qmd file,
+
+-   you are referring to an object that you created in your current R environment but did not create in your .qmd file, or
+
+-   your R code is not in the right order, and a line of code is relying on something you create in a subsequent code chunk in your .qmd file.
+
+The key to fixing this situation is typically to identify the code chunk where Quarto is having issues (yet another good reason to label your code chunks!), and ensure that everything used in that code chunk (libraries, data, objects, etc) is loaded into/created in your Quarto document in a previous code chunk.
+:::
+
+Typically, when I make a Quarto document, I include as the **very first first** thing after the YAML a code chunk with the `#| include: false` option in it that loads libraries. My next chunk (or chunks) do the task of loading in the data, data wrangling, and so forth, again with `#| include: false` specified, that loads and prepares all the data for analysis. All this happens in the .qmd file before any writing appears.
+
+## End of Chapter Exercise
+
+**Literate Programming Project:** Create a data-driven report using Quarto that analyzes some aspect of a dataset of your choice. Your report should demonstrate your ability to combine narrative text with R code to create a professional-looking document.
+
+Project Requirements:
+
+-   Choose a dataset from the book's previous chapters (such as cars04, gapminder, or iris) or any built-in R dataset that interests you
+
+-   Create a Quarto document with a clear title and your name as author Write a brief introduction explaining what aspect of the data you plan to examine (e.g., "This report examines fuel efficiency patterns in the 2004 car data" or "This analysis explores population trends across continents")
+
+-   Include at least 3 sections using proper header formatting Demonstrate data analysis using code from previous chapters or similar techniques - feel free to adapt existing code examples to your chosen dataset
+
+-   Create at least one summary table using functions like summarize(), group_by(), or summary()
+
+-   Use chunk options strategically: show code in some chunks to demonstrate your analysis process, but hide code in others to maintain document flow
+
+-   Include some mathematical notation using LaTeX (could be as simple as showing the formula for calculating a percentage or describing a statistical concept)
+
+-   Conclude with a brief discussion of what your analysis revealed about the data

@@ -1,0 +1,63 @@
+---
+bibliography: references.bib
+---
+
+# Preface {.unnumbered}
+
+In preparation for my first semester teaching Econometrics using R back in 2021, I prepared a series of R Notebooks for use in class. Not only did I use these notebooks to teach the material in class, I also provided them to students for their reference use to study, do homework, and so forth. At one point, in referring to this collection of notebooks, a student told me that they liked my book and found it useful for learning. My first instinct was to think *"it's not really a book, it is just a collection of teaching notes."* Well, after I got over the shock of students actually reading the notes, that is!
+
+But this student's statement stuck with me, and I realized that, while it wasn't really presented or written like a book, it was awfully close to being a book. The notebooks, when executed, were something in the realm of 250 pages of almost entirely original work (I think I "borrowed" something like 2 graphs, which I have since created my own versions of from scratch) and relied on data that was freely available via a variety of R packages. Plus, the work of turning it into a proper book appealed to me as an excuse to expand my knowledge of `rmarkdown` [@rmarkdown], learn how to use `bookdown` [@bookdown], and clean up a few things that needed to be revised. So, that became my summer project in 2022.
+
+Fast forward 2 years, and I've had enough experience using this text and teaching the class that it is time for a second edition. There are a number of significant changes since the first edition:
+
+-   **Significant rewrites to the introduction to R chapter:** The previous edition did not do this terribly well, in my opinion. It blurred the lines between base R and the Tidyverse, and again between R and RMarkdown, combining all of this into a single chapter. This edition breaks this chapter up into three distinct chapters; Introduction to R and RStudio, Literate Programming, and Data Wrangling with the Tidyverse. Additionally, the chapter introducing R and RStudio has added a discussion of important computing habits that I have noticed students often lack, like version control, working with directories and file organization, troubleshooting strategies, and so on.
+-   **Switch from RMarkdown and Bookdown to Quarto:** As Posit (*née* RStudio) seems to be moving in this direction, so shall I. I made the switch on the fly in my Fall 2024 class as it seemed that Quarto would be generally more beginner friendly than RMarkdown, which I (thankfully) found to be true in practice. This should allow for a number of other innovations in the book to improve readability, including:
+    -   **Callouts**: These are added to more effectively guidepost the reader through the material. Several callout types have been added, including mathematical explanations, tips for literate programming, coding tips, and more
+    -   **Code Folding**: The previous edition often suffered from walls of code, which could get unwieldy. Adding code folding for code chunks improves both the appearance and readability of the book.
+    -   **Referencing**: The first edition needed significant improvement in this area, Quarto's use of $\LaTeX$ referencing will help enable this, allowing for cleaner and more consistent citations.
+    -   **Cross-Platform Output**: For the life of me, I could never get `bookdown` to create a .pdf file.
+-   Add stuff as i do it.
+
+## Motivation {.unnumbered}
+
+This book is written primarily for use in the econometrics course I teach at Methodist University (**ECO 3160**). The course has only college algebra and an introductory-level applied business statistics as a prerequisite and serves as preparation for both the capstone course for Economics majors and the data mining and data analytics courses for Business Analytics majors. The absence of a calculus or computer programming prerequisite greatly informs the approach taken in this text. The calculus and linear algebra underpinnings of econometrics are minimized, appearing only in a few targeted places as callouts. For example, Chapter **ADD REFERENCE HERE** uses basic calculus to demonstrate finding the maximum or minimum in a quadratic regression, and also discusses the *dummy variable trap* using matrix concepts. Likewise, the focus on using R emphasizes scripting, rather than coding or programming. Relatively little time is spent on coding logic, loops, or advanced programming structures. Instead, the book adopts a more "cookbook" approach, with the following goals:
+
+1.  Understand the underlying intuition of various econometric procedures.
+
+2.  Identify when specific procedures are generally appropriate.
+
+3.  Diagnose some of the most common issues that may arise.
+
+4.  Learn how to use R to carry out these procedures effectively.
+
+While the previous paragraph lays out the specific context for which this text was written, I suspect the assumed background of its readers is fairly common outside my primary audience. Many students and individuals seek material that combines basic R scripting with applied econometrics while avoiding heavy dives into linear algebra, calculus, or statistical proofs. Undergraduate programs in economics often lack rigorous math requirements, with students typically completing only a general college math course or, at most, a business calculus class, along with a basic statistics course before enrolling into econometrics. This creates a sizable niche for a book that prioritizes intuition over math where possible.
+
+Though this may seem like an unusual design choice, I’ve opted to print the vast majority of the code as text in the book, enabling `code-folding` by default in the HTML version and setting `echo: true` as the default for PDF. While I could hide much of the code to produce a cleaner output, I believe that if one of the goals of this text is to teach basic R, then it’s beneficial for readers to see all of the R code.
+
+## A Humble Request {.unnumbered}
+
+This book is freely available for anyone to read. Unfortunately, I have no way of knowing who, if anybody, *is* actually reading it. So my humble request is to simply drop me a note if you read this book. Let me know how you found it. Did someone suggest it to you? Did you stumble across it online? If you spot a typo or an error, let me know. If you love it—or hate it—tell me why. Got a great idea for a new meme? I’d love to hear it. Even your opinions on the existing memes are fair game. Just let me know!
+
+If I get a few nice comments, I might even add a section to this book the next time I revise it with some of them. Anyhow, I'm pretty easy to find--probably the easiest is on social media at [Twitter](https://twitter.com/mattdobra) or [Facebook](https://www.facebook.com/mattdobra/). A quick google search of my name should reveal an academic email address, currently mdobra \[at\] methodist \[dot\] edu should you be an email aficionado.
+
+## Acknowledgements {.unnumbered}
+
+While the text of this book is, to the best of my knowledge, entirely of my own writing, it does make use of a variety of data repositories (created by others) that are part of the following R packages:
+
+-   `datasets` [@datasets] (the datasets built into base R)
+-   `wooldridge` [@wooldridge]
+-   `AER` [@AER]
+-   `fivethirtyeight` [@fivethirtyeight]
+-   `ggplot2`[@ggplot2]
+-   `carData` [@carData]
+-   `dplyr` [@dplyr]
+-   Stat2Data [@Stat2Data]
+-   Ecdat [@Ecdat]
+
+Additionally, there are places in which data is retrieved live from the web via such packages as WDI [@WDI], quantmod [@quantmod], etc.
+
+## About the Author {.unnumbered}
+
+Matt Dobra, Ph.D. is Professor of Economics in the Reeves School of Business at Methodist University. He primarily teaches introductory courses in macroeconomics and upper level courses in econometrics, microeconomics, and other areas of applied microeconomics. His primary research interests lie in the fields of resource economics and public economics. He has published peer reviewed academic research in such journals as the European Economic Review, Decision Sciences, and Resources Policy. He holds a Ph.D. and M.A. in Economics from George Mason University, a Graduate Certificate in Higher Education from Monash University, and a B.A. in History from Loyola University, New Orleans.
+
+© Matt Dobra 2022 CC BY-NC-SA

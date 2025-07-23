@@ -1,0 +1,1201 @@
+# Ordinary Least Squares {#sec-basicreg}
+
+Regression modeling is at the center of econometric methods. Starting here, the majority of this text will focus on either regression models or extensions of the regression model. We begin with the simplest of regressions; this chapter will focus heavily on bivariate ordinary least squares (OLS) modeling and introduce multivariate OLS.
+
+he t-tests and ANOVA we just covered work great when you're dealing with clean experimental data or when you can neatly categorize your variables. But here's the thing about regression: it's what you use when the world is messy and you can't control it. Unlike experimental scientists who can isolate variables in a lab, economists and analytics folks usually have to work with whatever data the world throws at them. People make decisions, markets fluctuate, policies change, and somehow you're supposed to figure out what's driving what from the chaos that results. Regression is the tool that lets you disentangle these relationships when you can't run controlled experiments.
+
+The good news is that once you wrap your mind around the basic intuition of regression, you'll have unlocked not just what economists do, but also the foundation for understanding every fancy variation that comes later in this book. Sure, the math gets mathier when we move to logit models or time seris analysis, but the core logic remains the same. Nail down OLS and everything else is just a remix. The bad news is that there's a lot of new terminology, some math notation that might look intimidating, and concepts that probably won't click immediately. That's normal.
+
+We'll start with simple bivariate regression where you have one variable trying to explain another, then work our way up to multivariate models where multiple factors are all fighting for credit. By the end of this chapter, you should be able to run and interpret basic regression models, which honestly puts you ahead of a shocking number of people with advanced degrees who make confident claims about complex issues without understanding how to control for confounding variables.
+
+As usual, let's start by loading the data we'll be using:
+
+```{r}
+#| warning: false
+#| message: false
+
+library(tidyverse)
+library(stargazer)
+library(openintro)
+library(wooldridge)
+library(tidyquant)
+library(quantmod)
+library(strucchange)
+library(AER)
+
+data(cars04)
+data(airfare)
+data(gpa2)
+data(TeachingRatings)
+
+# Setup Colors!
+colorlight <- "lightsteelblue"
+colordark <- "steelblue"
+
+colorlight2 <- "indianred1"
+colordark2 <- "indianred4"
+```
+
+## Prelude to Regression: The Correlation Test
+
+We saw how to calculate a correlation (Pearson's r) in @sec-basicstats. Before we dive into the full power of regression, let's warm up with a simpler question: how do we know if two variables are actually related to each other, or if any pattern we see is just random noise?
+
+Using the `cars04` data from the `openintro` package, let's look at the relationship between engine size and horsepower. This seems like a pretty obvious relationship - bigger engines should produce more power, right? Let's see if the data agree.
+
+First, let's calculate the correlation between engine size (in liters) and horsepower:
+
+```{r}
+cor(cars04$eng_size, cars04$horsepwr)
+```
+
+That's a pretty strong positive correlation of `r round(cor(cars04$eng_size, cars04$horsepwr), 2)`. Graphically, it looks like this:
+
+```{r}
+#| message: false
+
+cars04 |> ggplot(aes(x = eng_size, y = horsepwr)) +
+    geom_point(color = colordark) +
+    geom_smooth(method = lm, 
+                se = FALSE,
+                color = colorlight) +
+    theme_minimal() +
+    labs(x = "Engine Size (Liters)",
+         y = "Horsepower",
+         title = "Correlation Between Engine Size and Power")
+```
+
+The correlation measures the strength of the linear relationship between engine size and horsepower. If the correlation coefficient were 1, we'd have a perfect positive linear relationship. If it were 0, we'd say the variables are unrelated. But the real question is: is `r round(cor(cars04$eng_size, cars04$horsepwr), 2)` statistically significant, or could this just be a fluke?
+
+The correlation test lets us answer this question:
+
+-   $H_0$: The true correlation coefficient is 0, $\rho=0$
+-   $H_1$: The true correlation coefficient is not 0, $\rho \ne 0$
+
+We can test this hypothesis with the cor.test() function:
+
+```{r}
+cor.test(cars04$eng_size, cars04$horsepwr)
+```
+
+Unsurprisingly, this correlation is highly significant. With a p-value that small, we can confidently say that engine size and horsepower are genuinely related, not just randomly associated in our sample.
+
+Now, correlation tests are useful, but they have limitations. They tell us that two variables move together, but they don't tell us how much one variable changes when the other changes by a specific amount. For that, we need regression. If I told you a car had a 3.0L engine instead of a 2.0L engine, correlation can't tell you how much more horsepower to expect. Regression can.
+
+## Ordinary Least Squares
+
+The most basic regression model is referred to as Ordinary Least Squares, or OLS. As this model forms the basis of all that is to follow in this text, it is worth spending some time to develop a good intuition of what is going on here. It is easiest to start with the bivariate model, as we can develop the intuition graphically as well as mathematically.
+
+In a simple, bivariate OLS, we are looking at the **linear** relationship between our **dependent variable** and *one* **independent variable**. Suppose we are looking at the relationship between years of education and wages, where education is our independent variable, X, and wages are our dependent variable, Y. To say this model is linear implies that the relationship between X and Y looks like:
+
+\begin{equation}
+Y_{i} = \alpha + \beta X_{i} 
+\end{equation}
+
+This is just the old $y = mx + b$ equation from high school algebra, dressed up with Greek letters because, let's face it, Greek letters look cool. The $\alpha$ is your y-intercept (what happens when x = 0), and $\beta$ is your slope (how much y changes when x goes up by 1). In our education and wages example, this means you can determine anyone's wage by multiplying $X_i$, their years of education, by $\beta$ and then adding $\alpha$. We can display this graphically as well. In the graph below, assume that the $X$ axis measures years of education and the $Y$ axis captures wages. Graphically, this relationship looks like:
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+
+library(broom)
+set.seed(7)
+x <-  .2+ abs(rnorm(20))
+x[21] <- 0
+y <- .8* x + .2+ abs(rnorm(20))
+model <- lm(y ~ x)
+dat <- augment(model)
+
+ggplot(dat) +
+  geom_point(aes(x,.fitted),
+             size = 2) +
+  geom_smooth(aes(x,y),
+              method = lm, 
+              se = FALSE,
+              color = colorlight) +
+  lims(y = c(0, 3.5), x = c(0, 3.5)) + 
+  labs(x = expression("X"), y = expression("Y")) +
+  annotate("text", x = 0.12, y = 1.36, 
+           label = expression(alpha), 
+           color = colordark, 
+           size = 6) +
+  geom_segment(aes(x = 0, y = 0, xend = 3.5, yend = 0), 
+               color = "black",
+               arrow = arrow(length = unit(0.03, "npc"))) +
+  geom_segment(aes(x =0, y = 0, xend = 0, yend = 3.5), 
+               color = "black",
+               arrow = arrow(length = unit(0.03, "npc"))) +
+  geom_point(aes(x = 0, y = 1.04), 
+             size = 5, 
+             color = colordark) +
+  geom_point(aes(x = 1, y = 1.7), 
+             size = 5, 
+             color = colorlight2) + 
+  geom_point(aes(x = 2, y = 2.4), 
+             size = 5, 
+             color = colorlight2) +
+  geom_segment(aes(x = 1, y = 1.7, xend = 2, yend = 1.7), 
+               color = colorlight2,
+               linetype = "dashed") +
+  geom_segment(aes(x = 2, y = 1.7, xend = 2, yend = 2.4), 
+               color = colorlight2,
+               linetype = "dashed") +
+  annotate("text", x = 2.2, y = 2, 
+           label = expression(Delta*Y), 
+           color = colordark2,
+           size = 6) +
+  annotate("text", x = 1.5, y = 1.5, 
+           label = expression(Delta*X), 
+           color = colordark2, 
+           size = 6) +
+  annotate("text", x = 2.5, y = 1.5, 
+           label = expression(beta*" = "*Delta*"Y/"*Delta*"X"), 
+           color = colordark2, 
+           size = 6) +
+  annotate("text", x = .7, y = 2.8, 
+           label = expression("Y = "*alpha + beta*"X"), 
+           color = "black", 
+           size = 7) +
+    theme(axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          panel.background = element_blank()) 
+
+```
+
+If each of the black dots represents a person, this is an example of a model that is **fully determined** -- there is no scope for individuals to not be on the line. If, for example, $\beta = 1$ and $\alpha = 0.5$, then we would say that someone with 7 years of education will always have an hourly wage of \$7.50, someone with 13 years an hourly wage of \$13.50, and so forth. Doesn't sound like a great world to live in, and it absolutely doesn't sound like the real world we live in; there are plenty of high school graduates who are millionaire entrepreneurs, just as there are many people with Ph.D.s who struggle to make ends meet. Since the world is messier than high school algebra, we're gonna have to cope with that. And statistics will be our coping mechanism.
+
+The real world calls for a *stochastic* model. In a stochastic model, we use statistical tools to approximate the line that best fits the data. That is, we are still trying to figure out what $\alpha$ and $\beta$ are, but we are aware that not everybody will be on the line that is implied by $\alpha$ and $\beta$. This means that the model looks more like:
+
+\begin{equation}
+Y_{i} = \alpha + \beta X_{i} + \epsilon_i
+\end{equation}
+
+The new term, $\epsilon_i$, is called the **error term** or the **residual**. Where does the error term come from? Think of it as the "life happens" factor. It captures all the reasons why someone's actual wage might differ from what our neat little equation predicts: maybe they're exceptionally talented, or they are nepo babies, or they chose a career in a field they love but that doesn't pay well, or they are not good negotiators, or they just got unlucky. Or whatever. There's lots of possible reasons.
+
+More technically, the residual is just the difference between what actually happened to person $i$, $Y_i$, and what our model predicted would happen to person $i$, $\hat{Y}$ (pronounced Y-hat). Our prediction of $\hat{Y}$ comes from plugging their value of $X_i$ when put into the equation with $\alpha$ and $\beta$.
+
+The difference between the actual value of $Y_i$ and $\hat{Y}$ is $\epsilon_i$:
+
+\begin{equation}
+\epsilon_{i} = Y_i - \hat{Y}
+\end{equation}
+
+The theory (and math) behind a regression model focuses on trying to estimate values for $\alpha$ and $\beta$ that best fits the observed data. Because we don't know $\alpha$ and $\beta$, we estimate $\hat{\alpha}$ and $\hat{\beta}$ with our regression. Our estimated model looks like:
+
+\begin{equation}
+Y_{i} = \hat{\alpha} + \hat{\beta} X_{i}+ \epsilon_{i} 
+\end{equation}
+
+In other words, the residuals are just capturing how *wrong* our estimates of $\hat{\alpha}$ and $\hat{\beta}$ are. If $\hat{\alpha}$ and $\hat{\beta}$ are good-i.e., they predict $Y_i$ accurately, then our values for $\epsilon$ will be small. Conversely, if our estimates of $\hat{\alpha}$ and $\hat{\beta}$ are bad and don't predict our $Y_i$ values well at all, then we will have huge $\epsilon$ values.
+
+Perhaps this is easier to understand if looked at graphically, where we can see that the residual is just the vertical distance each individual data point is from the line implied by $\hat{\alpha}$ and $\hat{\beta}$.
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+
+subdat <- dat
+subdat$absdiff <- abs(dat$.resid) 
+subdat <- subdat %>% 
+  arrange(-absdiff) %>% 
+  slice(c(2,5,7))
+
+ggplot(dat) +
+  geom_point(aes(x,y),
+             size = 1,
+             color = "white") +
+  geom_point(aes(x,y),
+             data=subdat,
+             size = 4,
+             color = colordark2) +
+  geom_smooth(aes(x,y),
+              method = lm, 
+              se = FALSE,
+              color = colordark) +
+  lims(y = c(0, 3.5), x = c(0, 3.5)) + 
+  labs(x = expression("X"), y = expression("Y")) +
+  geom_segment(aes(x = 0, y = 0, xend = 3.5, yend = 0), 
+               color = "black",
+               arrow = arrow(length = unit(0.03, "npc"))) +
+  geom_segment(aes(x =0, y = 0, xend = 0, yend = 3.5), 
+               color = "black",
+               arrow = arrow(length = unit(0.03, "npc"))) +
+  geom_segment(aes(x =.205, y = 0.61, xend = .2050, yend = 1.10), 
+               color = colordark2,
+               arrow = arrow(ends="both", length = unit(0.03, "npc"))) +
+  geom_segment(aes(x = 1.17, y = 2.31, xend = 1.17, yend = 1.87), 
+               color = colordark2,
+               arrow = arrow(ends="both", length = unit(0.03, "npc"))) +
+  geom_segment(aes(x = 2.48, y = 2.4, xend = 2.48, yend = 2.68), 
+               color = colordark2,
+               arrow = arrow(ends="both", length = unit(0.03, "npc"))) +
+  annotate("text", x = 0.27, y = .9, 
+           label = expression(epsilon[i]), 
+           color = colordark2, 
+           size = 6) +
+  annotate("text", x = 1.24, y = 2.1, 
+           label = expression(epsilon[i]), 
+           color = colordark2, 
+           size = 6) +  
+  annotate("text", x = 2.55, y = 2.55, 
+           label = expression(epsilon[i]), 
+           color = colordark2, 
+           size = 6) +
+    theme(axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          panel.background = element_blank()) 
+
+```
+
+In this graph, the blue line represents our estimated relationship (the one implied by our estimates of $\hat{\alpha}$ and $\hat{\beta}$), and each red point represents an actual person in our data. The vertical distance each point is from the line is that person's residual $\epsilon_i$...how far off our prediction was for them specifically.
+
+So where do $\hat{\alpha}$ and $\hat{\beta}$ come from? How do we determine the line of best fit? We actually think about answering this question backwards: we don't find the line that is the best, we find the line that is the least wrong!
+
+The best fitting line is the one where the values of $\hat{\alpha}$ and $\hat{\beta}$ minimize the sum of squared errors, $\Sigma{\epsilon_i^2}$. This is why the method is called Ordinary Least **Squares**! We square the errors because we care about the magnitude of our mistakes, not whether we're wrong in a positive or negative direction. A prediction that's off by +\$5 is just as bad as one that's off by -\$5.
+
+In principle, we could take a data set, run it through every single possible combination of $\hat{\alpha}$ and $\hat{\beta}$, calculate, square, and sum all the values of $\epsilon_i$ that result from those values of $\hat{\alpha}$ and $\hat{\beta}$, and choose the $\hat{\alpha}$ and $\hat{\beta}$ that minimize $\Sigma{\epsilon_i^2}$. While this method would work, it would be incredibly time (and computer memory) intensive. There is a much cleaner way of doing this, but it involves a fair bit of calculus and matrix algebra. If you're dying to know the calculus behind this, knock yourself out...most *normal* econometrics textbooks will happily help you out. This, however, is a most abnormal book, so for our purposes, understanding the intuition is what matters, and we will trust that R will handle the math.
+
+## Estimating and Interpreting a Bivariate Regression
+
+Now that we have seen some of the graphical intuition going on behind the scenes of a regression, let us proceed to estimating a regression using R and interpreting the results.
+
+### Estimating the Model
+
+Let's remind ourselves of the data we were examining a bit earlier, the `cars04` data and the relationship between engine size and horsepower:
+
+```{r}
+#| message: false
+
+cars04 |> ggplot(aes(x = eng_size, y = horsepwr)) +
+    geom_point(color = colordark) +
+    theme_minimal() +
+    labs(x = "Engine Size (Liters)",
+         y = "Horsepower",
+         title = "Correlation Between Engine Size and Power")
+```
+
+We saw before that the correlation coefficient here is `r round(cor(cars04$eng_size, cars04$horsepwr), 2)`, which indicates a pretty strong positive linear relationship. This is pretty obvious from the graph as well. The regression will allow us to quantify the strength of the relationship in a way that the correlation coefficient will not. In other words, if we can figure out the line of best fit here, we can get a sense of just how much more power do you tend to generate from increasing the size of the engine!
+
+The R function to estimate a regression is `lm()`; if it helps you remember the command, `lm()` stands for **linear model**, which makes sense because we are basically just drawing the best possible line through the data.
+
+```{r}
+lm(horsepwr ~ eng_size, data = cars04)
+```
+
+Note that we could have also done `lm($cars04horsepwr ~ cars04$eng_size)`,  though I prefer the `lm(horsepwr ~ eng_size, data = cars04)` syntax because I stopped paying attention in typing class when we got to the section on symbols and I always make typos when I type \$:
+
+### Obtaining Useful Results
+
+As seen above, the immediate output from a regression model is not very helpful; it tells you the values of $\hat{\alpha}$ and $\hat{\beta}$ - these are the **coefficients** of the model - but that's it. We don't even know if the results are statistically significant! You pretty much always want to store your model as an object and inspect the object separately.
+
+```{r}
+reg1 <- lm(horsepwr~eng_size, data = cars04)
+```
+
+Running this line doesn't give us any output, but you should see an object called `reg1` over in your environment window now. We can see what all is contained within this object with the `attributes()` command:
+
+```{r}
+attributes(reg1)
+```
+
+To interpret the model, we need to take a deeper look at this regression object. The Base R method is to use the `summary()` command, though I prefer `stargazer` because the format looks like the way regressions get published in academic journals. Unfortunately, `stargazer` is not quite up to the task of professional level output, nor does it work for all the methods we will cover in this book, so we will be switching to something else a bit more robust later. But for now, while we are building regression intuition we will stick with `stargazer` because it's definitely easy and I want to focus on learning one hard thing at a time!
+
+```{r}
+summary(reg1)
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis 
+
+stargazer(reg1, type = "html")
+```
+
+::: callout-tip
+###### May the Format Be With You: Stargazer Formatting May Be Easy, But It's Still Annoying
+
+As you can see from the slightly mangled `stargazer` output above (the significance stars aren't displaying correctly), formatting can be fiddly when outputting via Quarto. You want the `type =` to match the type of document you are creating, and to use `#| results: asis` to get the results to look right in your final product.
+
+Here's my honest workflow: I use `stargazer` with `type = "text"` when I'm doing preliminary work because it's quick and dirty and gives me what I need to see. But when it's time for a finished product, I usually end up switching to `jtools` or `modelsummary` because they play nicer with Quarto and handle more complex models. That "something else more robust" I mentioned? Yeah, those are the main contenders. 
+
+For now, though, we're in preliminary mode...focusing on understanding what these numbers actually mean rather than perfecting the formatting. The concepts matter more than the pretty tables at this stage. 
+
+But don't you worry. We'll make them pretty later!
+:::
+
+These displays are a lot more useful. There's lots of stuff in these outputs. The values of $\hat{\alpha}$ and $\hat{\beta}$ are found in the coefficients panel--the estimate of the intercept/constant is $\hat{\alpha}$ and the estimated coefficient on engine size is $\hat{\beta}$. This means that our regression model is in fact:
+
+\begin{equation}
+\hat{Horsepower_{i}} = 52.772 + 51.025 EngineSize_{i} 
+\end{equation}
+
+### Predicted Values and Residuals
+
+We can use this equation to make predictions by simply plugging a value in for $X$. For example, the predicted horsepower of an automobile with a 4.0L engine is:
+
+\begin{equation}
+\hat{Horsepower_{i}} = 52.772 + 51.025 * 4 
+\end{equation}
+
+\begin{equation}
+\hat{Horsepower_{i}} = 256.87
+\end{equation}
+
+There are, in fact, `r nrow(cars04[cars04$eng_size == 4,])` cars in the dataset that have a 4.0L engine. They are:
+
+```{r}
+cars04 |> 
+  filter(eng_size == 4) |> 
+  select(name, eng_size, horsepwr) |> 
+  knitr::kable()
+```
+
+None of these cars in fact have a 256.87 horsepower engine.  In part because the `horsepwr` variable isn't measured with that level of accuracy, mostly because there are other factors that are going to influence the power of the engine. For each of these cars, their residual is the difference between their actual horsepower and 256.87. For example, the residual for the Volkswagen Passat is $270-256.87=13.13$, while the residual for the Mercury Mountaineer is $210-256.87=-46.87$.  
+
+In the process of running this regression, R already calculated predicted values and residuals for every single observation in the dataset! Recall above that we used the `attributes(reg1)` command and saw that we can grab the model's residuals, $\epsilon_i$, and fitted values, $\hat{Y_i}$.  This next code clones the `cars04` data into a new dataset called `tempdata`, attaches the residuals and predicted values to that new dataset, and gets rid of all the variables we didn't use in our regression. Then, we can look at the same 8 cars as above:
+
+
+```{r}
+residual <- reg1$residuals
+predicted <- reg1$fitted.values
+tempdata <- cbind(cars04, predicted, residual)
+tempdata |> 
+  select(name, eng_size, horsepwr, predicted, residual) |> 
+  filter(eng_size == 4) |> 
+  knitr::kable()
+```
+
+Just to verify that this approach doesn't just stick 256.87 in our predicted column for all of them, we can take a look at a random sample of 10 observations
+
+```{r}
+set.seed(8675309)
+tempdata |> 
+  select(name, eng_size, horsepwr, predicted, residual) |> 
+  slice_sample(n = 10) |> 
+  knitr::kable()
+```
+
+Check out that sexy Jag!  That bad boy is way outperforming his engine size with a residual of 122.9!  We call this an *outlier*, when an observation is a long way either above or below the predicted value.  This has piqued my curiosity; let's take a look at the five biggest and smallest outliers!
+
+```{r}
+tempdata |> 
+  select(name, eng_size, horsepwr, predicted, residual) |> 
+  arrange(-residual) |> 
+  slice(1:5) |> 
+  knitr::kable()
+```
+
+```{r}
+tempdata |> 
+  select(name, eng_size, horsepwr, predicted, residual) |> 
+  arrange(residual) |> 
+  slice(1:5) |> 
+  knitr::kable()
+```
+
+::: callout-tip
+###### Data Storytelling: Outliers and Stranger Danger!
+
+Sometimes looking at outliers is just for fun, sometimes it is a very useful tool for data cleanup.  Just like you were taught to be cautious around strangers (who might be perfectly fine but deserve a closer look), outliers are the source of "stranger danger" in your dataset - they look different from everyone else and deserve investigation.
+
+Imagine if somebody had accidentally coded that honda insight with 730 horsepower instead of 73. The residual on a 2.0L car with 730 horsepower would be $730 - (52.772 + 51.025*2) = 575.18$, and you'd immediately know something was off. Massive residuals are often your first clue that there's a typo or data entry error lurking in your dataset.
+
+But outliers aren't always mistakes. Sometimes they're the most interesting part of your data. That Jaguar XKR with the huge positive residual? That's a high-performance sports car engineered to squeeze every bit of power out of its engine. Sign me up! The Honda Insight with the large negative residual? That's a hybrid designed for fuel efficiency, not power. These outliers aren't errors - they're telling you something important about the limits and exceptions to your general relationship. The key is investigating outliers, not automatically assuming they're wrong and deleting them. 
+:::
+
+### Look at the Stars, Look How They Shine for You
+
+As an aside, Coldplay sucks. Rather than dwell upon their excrementary music, let's look back at the `stargazer()` output because the statistics will allow us to think happy thoughts again:
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis 
+
+stargazer(reg1, type = "html")
+```
+
+You should have noticed all the stars next to the engine size coefficient and the constant term.  These stars are very useful for interpreting the **statistical significance** of your regression model.  In a regression, the null hypothesis is that the true coefficients ($\beta$ and $\alpha$) are equal to zero, the alternative hypothesis is that they are not equal to zero.  Most of the time we are not concerned with $\alpha$ or its significance (I'll come back to this point later); rather, we focus on $\beta$ and whether or not our estimate of $\hat{\beta}$ is significantly different from zero.
+
+Why zero?  If $\beta > 0$, higher values of $X_i$ are associated with higher values of $Y_i$.  If $\beta < 0$, higher values of $X_i$ are associated with lower values of $Y_i$.  If $\beta = 0$, then there is no relationship between our dependent variable and our independent variable.  In other words, our null hypothesis is that X and Y are unrelated, and by rejecting the null hypothesis we are saying that we believe that X and Y are in fact related.   
+
+The bottom panel shows useful information about the regression.  Observations is your sample size, and R2 is actually $R^2$ (pronounced R-squared) and is a measure of goodness of fit.  The possible range for $R^2$ is $0 \leq R^2 \leq 1$.  In a bivariate model, $R^2$ is actually the correlation coefficient squared!
+
+```{r}
+cor(cars04$eng_size, cars04$horsepwr)
+cor(cars04$eng_size, cars04$horsepwr)^2
+```
+
+$R^2$ is often called the **coefficient of determination**, and, while not technically true, is easiest thought of as the percentage of the variation in $Y$ that you can explain with your independent variable $X$.  Our $R^2=0.6201$ then might be interpreted as saying that we can explain roughly 62% of the variation in horsepower with engine size, and therefore the other 38% of the variation in horsepower is left unexplained.  
+
+The F-test is a measure of the significance of the entire model--the null hypothesis is that every $\hat{\beta}$ that you estimated is equal to zero.  In a bivariate model, there is only one $\hat{\beta}$ so the F-test of the model is basically the same thing as the t-test of your one $\hat{\beta}$.  In actuality, the F-test is not that important early on while learning regressions because the focus tends to be on the coefficients; if any of your estimates of $\hat{\beta}$ are significant, your F-test will be significant as well. There are more complicated techniques for model comparison that do involve the F-test (e.g. the Chow test) that we will see later in the text.
+
+### Visualizing the Regression Line
+
+Using `ggplot()`, it is easy to add the regression line to a scatterplot to visualize the relationship. We can use `geom_point()` to create the scatterplot and add the regression line with the `geom_smooth(method = lm)` argument. Don't forget to include `#| message: false` in your Quarto when you include a `geom_smooth()`, this is one you always get messages about! 
+
+```{r}
+#| message: false
+
+cars04 |> ggplot(aes(x = eng_size, y = horsepwr)) +
+    geom_point(color = colordark) +
+    geom_smooth(method = lm, 
+                color = colordark,
+                fill = colorlight) +
+    theme_minimal() +
+    labs(x = "Engine Size (Liters)",
+         y = "Horsepower",
+         title = "Relationship Between Engine Size and Power")
+```
+
+The light blue band around your line of best fit shows the confidence interval of your regression. It is actually calculated using those standard errors we saw in our regression output - the (1.935) under the engine size coefficient and the overall model error. The closer we are to the average engine size in our data (3.2L), the more confident R is about the prediction. That's why the band gets wider at the extremes - we have only 8 cars with engines 6.0L or larger and only 9 cars with engines 1.5L or smaller to learn from.
+
+## More Examples of Bivariate Regression
+
+Now that we have the basics of regression down, let's try running and interpreting regressions with a few more datasets. We will add more nuance to our interpretations as we go.
+
+### Introducing Data Transformations
+
+Let's start with the `airfare` data from the `wooldridge` package (as always, check out `?airfare` to learn a bit about the data!) and examine the relationship between the average one-way fare and the distance in miles of the routes.  Which variable should be dependent and which should be independent?  Statistics cannot prove causation, that is the role of (economic) theory. But when constructing our regressions, we should be thinking about economic logic and how it informs our thinking about causality. 
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| fig-cap: "Correlation vs Causation"
+#| out-width: 60%
+#| fig-alt: 'Dumbest Man Alive meme. Three-panel webcomic meme. Panel 1: A man wearing a crown proudly states "I am the dumbest man alive." Panel 2: Another person says "Correlation implies causation." Panel 3: The first man kneels before the other person, looking defeated, and hands over his crown while responding "You are clearly dumber."'
+
+knitr::include_graphics("images/dumbest.jpg")
+```
+
+In this case, it is likely that distance is the cause of the price, and not the other way around, so we put distance on the X-axis and airfare on the Y-axis. We can start by looking at a scatterplot:
+
+```{r}
+#| message: false
+
+airfare |> ggplot(aes(x = dist, y = fare)) +
+  geom_point(size = .7,
+             color = colordark) + 
+  geom_smooth(method=lm,
+              color = colordark,
+              fill = colorlight) + 
+  theme_minimal() + 
+  labs (x = "Distance",
+        y = "Airfare",
+        title = "Relationship Between Flight Distance and Airfare")
+```
+
+Next, we can estimate the regression model using the `lm()` command.  
+
+```{r}
+reg_airfare <- lm(fare ~ dist, data = airfare)
+```
+
+The regression output is stored in the object `reg_airfare`, so let's use `stargazer()` to check it out.   
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+stargazer(reg_airfare, type = "html")
+```
+The coefficient on the distance variable is significant at the 99% level and $R^2 = .39$, both of which indicate strong statistical significance.  Let's think about what this means in terms of our regression equation: 
+
+\begin{equation}
+fare_{i} = 103.261 + 0.076 distance_{i} 
+\end{equation}
+
+The $\beta$ implies that, if distance increases by 1, fare increases by 0.076.  What are the units of measure here?  Distance is measured in miles, and fare is measured in \$US. So this equation suggests that, on average, a one mile increase in the distance of a flight is associated with a \$0.076 (7.6 cents) increase in price.  This isn't really an intuitive unit of measure--one doesn't get in a plane to go one mile! It may be more intuitive to think about this in bigger units of distance.  If one mile leads to prices going up by 7.6 cents, then 10 miles leads to prices going up by 76 cents and a 100 mile increase in distance as associated with a \$7.60 increase in price. That last one feels more intuitive to me; you buy a plane ticket when you want to go hundreds of miles, not if you are going grocery shopping or to the other side of town.
+
+Let's take this logic a little further and start to learn a bit about data transformation. 
+
+```{r} 
+airfaretemp <- airfare |>  
+    select(fare, dist) |>  
+    mutate(dist100 = dist/100)
+airfaretemp[c(1,5,9,13,17),]
+```
+
+This bit of code creates a new dataset called airfaretemp and adds a new variable called dist100.  The variable dist100 is created by dividing the dist variable by 100, so really it's just converting our distance measure from miles to hundreds of miles.  I also had R spit out 5 lines of data just to confirm the relationship between the variables $dist100=\frac{dist}{100}$. Now, let's estimate the regression between fare and dist100 and put it side by side with our original regression:
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+reg_airfare2 <- lm(fare ~ dist100, data = airfaretemp)
+stargazer(reg_airfare, reg_airfare2, type = "html")
+```
+
+This is pretty cool! The results are more or less identical, except for the decimal places with respect to the distance variable and its standard error. The key insight here is that rescaling your variables doesn't change the underlying relationship or the statistical significance--it just makes the coefficients easier to interpret. Whether we say 'each mile costs 7.6 cents' or 'each hundred miles costs $7.60,' we're describing exactly the same relationship. The math is identical, but one version is way more intuitive because it matches the scale we actually think about airfare in.
+
+### Does Alpha Matter?
+
+Next, let's take a look at the `gpa2` data, again from the `wooldridge` package. This data includes student data from a midsize research university.  Let's look at the relationship between a student's SAT score and his/her GPA after the fall semester:
+
+```{r}
+#| message: false
+gpa2 |> ggplot(aes(x = sat, y = colgpa)) +
+  geom_point(size = .7,
+             color = colordark) +
+  geom_smooth(method=lm,
+              color = colordark,
+              fill = colorlight) + 
+  theme_minimal() + 
+  labs (x = "SAT Score",
+        y = "Student GPA",
+        title = "Relationship Between SAT Score and GPA")
+```
+
+Next, store the regression in an object and look at it using `stargazer()`
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+reg_gpa <- lm(colgpa ~ sat, data = gpa2)
+stargazer(reg_gpa, type = "html")
+```
+
+Here, $R^2 = .17$ and our estimate of $\hat{\beta}$ is significant at the 99% level.  We can interpret the coefficient of .002 as stating that we expect GPA to go up by .002 on average for every 1 point of SAT.  This is awkward because SAT scores don't actually move by single points - they move in increments of 10. A 100-point increase in SAT score being associated with a 0.2 GPA increase is much more meaningful.  
+
+Let's look at the estimated value of $\hat{\alpha}$ of 0.663.  What does that mean, and what does it mean that it is significant?  Let's start with the question of what it means and look at the regression equation:
+
+\begin{equation}
+gpa_{i} = 0.663 + 0.002 sat_{i} 
+\end{equation}
+
+What would our expected gpa, $\hat{gpa}$, be for a student who earned a 0 on the SAT?  Anything multiplied by 0 is 0, so 0.663 is our estimated GPA for somebody who earned a 0 on the SAT. But is it even possible to earn a 0 on the SAT? They give you 400 points just for showing up alive. So looking at a 0 on the SAT is somewhat meaningless in this model, because it is impossible to even get.  
+
+Let's take another look at the graph, only this time I'm going to force the x axis to go from 0 to 1600:
+
+```{r}
+#| message: false
+
+gpa2 |> ggplot(aes(x = sat, y = colgpa)) +
+  geom_point(size = .7, 
+             color = colordark) +
+  geom_smooth(method = lm, 
+              color = colordark, 
+              fill = colorlight) + 
+  scale_x_continuous(limits = c(0, 1600)) +
+  theme_minimal() + 
+  labs(x = "SAT Score", 
+       y = "Student GPA", 
+       title = "Why Interpreting the Intercept Can Be Problematic")
+```
+
+You might notice that the `geom_smooth` doesn't even go all the way to the y-axis! It stops at `r min(gpa2$sat)`, the smallest value for `sat` in the dataset. R is strongly discouraging us from engaging in extrapolation - making predictions outside the range of your data. Like asking what sort of GPA we might expect from someone who took the SAT and somehow earned a 0, despite it being impossible to do. We'll talk more about this idea later in the book.
+
+That doesn't mean we don't need alpha, though! The $\alpha$ in the equation is invaluable for calculating predicted values, but in most cases, $\hat{\alpha}$ is not really what we are looking at in a regression model.  This brings us back to the question of the significance of the $\hat{\alpha}$ term - the fact that we are pretty darn sure that the true value of $\alpha$ is not really 0 doesn't really mean anything here. 
+
+### Alternative Hypothesis Tests
+
+Most of the time, the value of $\hat{\alpha}$ is not of terrible importance, though here is a counterexample: consider the CAPM model, a standard model in finance.  The CAPM model can be written as:
+
+\begin{equation}
+(R-R_f)=\alpha + \beta(R_m-R_f) 
+\end{equation}
+
+Where:
+
+* $R$ is the rate of return of an asset or portfolio
+* $R_f$ is the risk-free rate of return
+* $R_m$ is the market rate of return
+* $\beta$ is the relative volatility of the asset and measures how much the asset moves when the market moves - values above 1 mean the asset is riskier (moves more than the market), while values below 1 mean it's safer (moves less than the market) 
+* $\alpha$ is a risk-adjusted rate of return: the extent to which the asset under- or over-performed the market when taking into consideration the riskiness of the asset
+
+The CAPM model can be estimated using bivariate regression, and when people in finance talk about stock market betas, they are literally talking about $\beta$ from a CAPM regression!  In this model, you may in fact not only be interested to know the value of $\alpha$, but whether or not it is significantly different from zero is of importance as well!
+
+Getting the data for this will be a bit tricky; this next bit of code is the most complicated thing in the text so far. This code relies upon the `tidyquant` and `quantmod` packages: 
+
+```{r}
+#| warning: false
+#| message: false
+
+# Download data from Yahoo Finance:
+nvda <- tq_get('NVDA', # NVIDIA
+               from = "2021-01-01",
+               to = "2024-01-01",
+               get = "stock.prices")
+xom <- tq_get('XOM',  # ExxonMobil
+               from = "2021-01-01",
+               to = "2024-01-01",
+               get = "stock.prices")
+ba <- tq_get('BA',  # Boeing
+               from = "2021-01-01",
+               to = "2024-01-01",
+               get = "stock.prices")
+chpt <- tq_get('CHPT', # ChargePoint
+               from = "2021-01-01",
+               to = "2024-01-01",
+               get = "stock.prices")
+cpb <- tq_get('CPB', # Campbell Soup
+               from = "2021-01-01",
+               to = "2024-01-01",
+               get = "stock.prices")
+russell <- tq_get('^RUT',  # Russell 2000
+               from = "2021-01-01",
+               to = "2024-01-01",
+               get = "stock.prices")
+tbill <- tq_get('SHY', # Treasury Bond ETF (risk-free proxy)
+               from = "2021-01-01",
+               to = "2024-01-01",
+               get = "stock.prices")
+
+# Convert stock prices into daily rates of return
+nvda <- nvda |>  
+    select(date, adjusted)  |>  
+    mutate(lnadjusted = log(adjusted)) |>  
+    mutate(nvda = lnadjusted - lag(lnadjusted)) |>  
+    select(date, nvda)
+xom <- xom |>  
+    select(date, adjusted) |>  
+    mutate(lnadjusted = log(adjusted)) |>  
+    mutate(xom = lnadjusted - lag(lnadjusted)) |>  
+    select(date, xom)
+ba <- ba |>  
+    select(date, adjusted) |>  
+    mutate(lnadjusted = log(adjusted)) |>  
+    mutate(ba = lnadjusted - lag(lnadjusted)) |>  
+    select(date, ba)
+chpt <- chpt |>  
+    select(date, adjusted) |>  
+    mutate(lnadjusted = log(adjusted)) |>  
+    mutate(chpt = lnadjusted - lag(lnadjusted)) |>  
+    select(date, chpt)
+cpb <- cpb |>  
+    select(date, adjusted) |>  
+    mutate(lnadjusted = log(adjusted)) |>  
+    mutate(cpb = lnadjusted - lag(lnadjusted)) |>  
+    select(date, cpb)
+russell <- russell |>  
+    select(date, adjusted) |>  
+    mutate(lnadjusted = log(adjusted)) |>  
+    mutate(russell = lnadjusted - lag(lnadjusted)) |>  
+    select(date, russell)
+tbill <- tbill |>  
+    select(date, adjusted) |>  
+    mutate(lnadjusted = log(adjusted)) |>  
+    mutate(tbill = lnadjusted - lag(lnadjusted)) |>  
+    select(date, tbill)
+
+# Combine all the datasets
+returns <- russell 
+returns <- merge(returns, nvda, by = "date")
+returns <- merge(returns, xom, by = "date")
+returns <- merge(returns, ba, by = "date")
+returns <- merge(returns, chpt, by = "date")
+returns <- merge(returns, cpb, by = "date")
+returns <- merge(returns, tbill, by = "date")
+returns <- drop_na(returns)
+```
+
+I've attempted to document the code to help with readability. This downloads stock ticker data for NVIDIA (NVDA), ExxonMobil (XOM), Boeing (BA), ChargePoint (CHPT), Campbell's Soup (CPB), and the Russell 2000 (^RUT), along with the Treasury Bond ETF SHY (which will be used for our risk-free rate).
+
+Next, we estimate 5 CAPM regressions; one for each stock, and display them in `stargazer()`.
+
+```{r}
+#| warning: false
+#| echo: true
+#| results: asis
+
+capm_nvda <- lm(nvda - tbill ~ russell - tbill, data = returns)
+capm_xom <- lm(xom - tbill ~ russell - tbill, data = returns)
+capm_ba <- lm(ba - tbill ~ russell - tbill, data = returns)
+capm_chpt <- lm(chpt - tbill ~ russell - tbill, data = returns)
+capm_cpb <- lm(cpb - tbill ~ russell - tbill, data = returns)
+stargazer(capm_nvda, capm_xom, capm_ba, capm_chpt, capm_cpb, 
+          type = "html",
+          column.labels = c("NVIDIA", "ExxonMobil", "Boeing", "ChargePoint", "Campbell's"),
+          dep.var.labels.include = FALSE)
+```
+
+This is a model that we actually care about the value of $\alpha$, which represents the risk-adjusted rate of return. Looking at our results, we get quite a spread of outcomes that tell some interesting stories:
+
+-   NVIDIA has a significantly positive alpha (0.002*). This is the time of the rise of AI and the ChatGPT boom, so maybe not a surprise they outperformed the market
+-   ExxonMobil also shows a significantly positive alpha (0.001**), proving that sometimes boring old oil companies know how to make money
+-   Boeing has a small, insignificant alpha (0.0003), suggesting it performed almost exactly as the CAPM model would predict - that said, five days after our data window ends, they had a plane fall apart mid flight, so maybe I should have downloaded a few more days! 
+-   ChargePoint shows a significantly negative alpha (-0.004**), because apparently being in the hot EV charging sector doesn't guarantee you'll actually make money
+-   Campbell Soup has a tiny, insignificant alpha (-0.00002), performing roughly as expected for a company that sells canned soup. Mmmm, soup.
+
+It might also be of note here that the significance test of our estimated $\hat{\beta}$ values is relative to $\beta = 0$, but in this particular application of financial econometrics, you may not be interested in $\beta = 0$, you may be more interested in a hypothesis of whether or not the asset has equal volatility to the market ($\beta=1$), or if it is more ($\beta>1$) or less ($\beta<1$) volatile than the market. In finance, negative betas are theoretically possible but highly unlikely; an asset with a negative beta would be considered to be a hedge and would tend to do better when the market declines, but do worse when the market appreciates.  
+
+The easiest way to get insight into this question is to use the `confint` command to generate a confidence interval for the regression model:
+
+```{r}
+confint(capm_nvda) # Nvidia Model
+```
+
+We see that our confidence interval for our first regression (for NVIDIA stock) states that we are 95% confident that $1.160<\beta<1.417$, indicating that we are fairly certain that NVIDIA stock is far more volatile than the market as a whole.  Repeating this process for the ExxonMobil, Boeing, ChargePoint, and Campbell Soup stocks:
+
+```{r}
+#| echo: true
+
+confint(capm_xom) # ExxonMobil Model
+confint(capm_ba) # Boeing Model
+confint(capm_chpt) # ChargePoint Model
+confint(capm_cpb) # Campbell Soup Model
+
+```
+
+We see that the 95% confidence intervals reveal some interesting patterns. ExxonMobil ($0.432<\beta<0.601$) is significantly less volatile than the market, confirming it as a defensive stock. Boeing ($0.892<\beta<1.069$) has a confidence interval that includes 1, so we cannot say it's significantly different from market volatility - a perfect textbook CAPM example. ChargePoint ($1.742<\beta<2.154$) is significantly more volatile than the market, which makes sense for a speculative growth stock. Finally, Campbell's Soup ($-0.018<\beta<0.119$) has a confidence interval that includes 0, meaning we can't even say it moves with the market at all - it's basically uncorrelated with market movements, which is exactly what you'd expect from a company that sells consumer staples that people buy regardless of what the stock market is doing.
+
+### Not All Regressions Have Significant Results
+
+Let's return to some simpler examples, starting with the `meap01` data; this data has school level funding and test score data in the state of Michigan.  Does spending per student lead to better performing students?  We can look at the relationship between the variable `math4`, the percent of students receiving a satisfactory 4th grade math score, and `exppp`, expenditures per pupil. We start by looking at a plot of the data:
+
+```{r}
+#| message: false
+
+meap01 |> ggplot(aes(x = exppp, y = math4)) +
+    geom_point(color = colordark,
+               alpha = .6) +
+    geom_smooth(method = lm,
+                color = colordark,
+                fill = colorlight) +
+  theme_minimal() +
+  labs(x = "Expenditures per Pupil (USD)",
+       y = "Mean 4th Grade Math Score",
+       title = "Relationship between School Spending and Educational Outcomes")
+```
+
+If you have read a paper or two in the economics of education literature, the slope of that line may not come as a surprise to you. Let's estimate a regression:
+
+```{r}
+#| warning: false
+#| results: asis
+#| message: false
+
+reg_ed <- lm(math4 ~ exppp, data = meap01)
+stargazer(reg_ed, type  = "html")
+```
+
+The sign on the $\hat{\beta}$ is negative, which corresponds to the downward sloping line in the plot.  However, there are no stars next to the coefficient, implying that the result is not significantly different from 0; thus, even though $\hat{\beta} < 0$, we do not reject the null hypothesis that $\beta = 0$. Sometimes this is referred to as a **null finding**.  
+
+### Signs, Signs, Everywhere There's Signs
+
+Before we move on to multivariate regression, let's take a look at the teaching evaluations data in the `TeachingRatings` dataset from the `AER` package. Specifically, let's examine the relationship between professor attractiveness and student evaluations. We can start with a graph:
+
+```{r}
+#| message: false
+
+set.seed(8675309)
+
+TeachingRatings |> 
+  ggplot(aes(x = beauty, y = eval)) +
+  geom_jitter(color = colordark) + 
+  geom_smooth(method = lm,
+              color = colordark,
+              fill = colorlight) +
+  labs(y = "Teaching Evaluation Score",
+       x = "Beauty Rating",
+       title = "Professor Attractiveness vs Student Evaluations") +
+  theme_minimal()
+```
+
+::: callout-tip
+###### Data Storytelling: Playing Hide and Seek with data
+Notice how I used `geom_jitter()` instead of `geom_point()` here? That's because evaluation scores are rounded (3.0, 3.5, 4.0, etc.), so many of the points can stack on top of each other. What looks like 20 scattered points might actually be hundreds all hiding in the same spots.
+
+The `geom_jitter()` starts with a `geom_point()` and then just nudges every data point a little bit in a random direction.  Not enough to make the data tell the wrong story (hopefully!) but enough so that if two points are occupying the same spot, they won't anymore.  
+
+Check out the comparison below. The left graph uses `geom_point()`, while the right graph is a `geom_jitter()`. Everything else is the same.  Pick any cluster of dots in the left graph and count them, then look at the same spot on the right - you'll probably see more dots!
+
+For example, near `beauty = -1.5` and evaluation scores between 3-4, the left graph shows 5 dots but the right reveals 6. Or look above the regression line at `beauty = 1.75` - the `geom_point()` shows 4 dots, but `geom_jitter()` reveals there were actually 8 all along! Those "hidden" points were stacked on top of each other, invisible until we jittered them apart.
+
+
+```{r}
+#| message: false
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Using geom_point()"
+#|   - "Using geom_jitter()"
+
+# Graph 1: geom_point
+TeachingRatings |> 
+ ggplot(aes(x = beauty, y = eval)) +
+ geom_point(color = colordark) + 
+ geom_smooth(method = lm,
+             color = colordark,
+             fill = colorlight) +
+ labs(y = "Teaching Evaluation Score",
+      x = "Beauty Rating",
+      title = "geom_point()") +
+ theme_minimal()
+
+# Graph 2: geom_jitter  
+TeachingRatings |> 
+ ggplot(aes(x = beauty, y = eval)) +
+ geom_jitter(color = colordark) + 
+ geom_smooth(method = lm,
+             color = colordark,
+             fill = colorlight) +
+ labs(y = "Teaching Evaluation Score",
+      x = "Beauty Rating",
+      title = "geom_jitter()") +
+ theme_minimal()
+```
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| fig-cap: "There are 4 lights!"
+#| out-width: 60%
+#| fig-alt: 'Star Trek TNG meme. Cardassian interrogator says "There are 5 lights" Picard defiantly responds "THERE ARE 4 LIGHTS" Bottom caption reads "TFW the Cardassians use geom_point() instead of geom_jitter()"'
+
+knitr::include_graphics("images/4lights.jpg")
+```
+
+:::
+
+Next, we estimate the regression and put the results into `stargazer()` for ease of viewing. 
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+reg_beauty <- lm(eval ~ beauty, data = TeachingRatings)
+stargazer(reg_beauty, type = "html")
+```
+
+The $R^2$ is a modest $R^2 = 0.036$, but the $\hat{\beta}$ is positive and significant at the 99% level.  But this is a tricky $\beta$ to interpret, because the variable `beauty` is a standardized score with a mean of zero and standard deviation of one. The coefficient of 0.133 means that a one-standard-deviation increase in attractiveness is associated with a 0.133 point increase in teaching evaluations (on a 5-point scale). But what does "one standard deviation more attractive" actually mean in the real world? Is that the difference between average-looking and quite attractive? Or between hideous and merely unappealing?
+
+Sometimes the most important takeaway is simpler: looks matter in teaching evaluations. The positive, highly significant coefficient tells us that, all else equal, more attractive professors tend to receive higher student evaluations. In cases like this, it's often easier to focus on interpreting the signs and significance of the coefficients rather than getting bogged down in the actual magnitude of the coefficients, especially when the independent variable is measured in units that don't have obvious real-world meaning.
+
+## Multivariate Regression
+
+We can extend this logic into having multiple independent variables.  Multivariate regression is a bit harder to wrap one's mind around, because it is really difficult to graph (adding variables adds dimensions to the graph, so we are no longer dealing with a 2d space), but the basics of interpreting the variables is the same as with bivariate modeling.
+
+Let's start with a basic example. Using the cars04 data, what happens when we include both engine size AND number of cylinders in the same regression? Both variables intuitively should be related to horsepower, but they're also related to each other...bigger engines typically have more cylinders.
+
+```{r}
+#| warning: false
+#| results: asis
+
+reg_car1 <- lm(horsepwr~eng_size, data = cars04)
+reg_car2 <- lm(horsepwr~ncyl, data = cars04)
+reg_car3 <- lm(horsepwr~ncyl + eng_size, data = cars04)
+stargazer(reg_car1, reg_car2, reg_car3, type = "html")
+```
+As you can see, adding another variable to a `lm()` is incredibly easy!
+
+The first column shows the relationship between engine size and horsepower. The second looks at the relationship between number of cylinders and horsepower, and the third column looks at the model with both engine size and cylinders. First, a couple comments on interpreting the multivariate results.
+
+-   We interpret the coefficients in the same way as in a bivariate model - column 3 implies that a 1-liter increase in engine size is associated with a 30.4 horsepower increase, and each additional cylinder is associated with a 15.7 horsepower increase. It is always useful to keep in mind the economic notion of *ceteris paribus* here! The 30.4 horsepower increase from increasing engine size by 1L assumes holding the number of cylinders constant, and an additional engine cylinder is associated with a 15.7 horsepower increasing holding engine size constant!
+
+-   We can make predictions the same way as well. If a car has a 3.5-liter engine with 6 cylinders, the model predicts that its horsepower will be $28.0 + 30.4(3.5) + 15.7(6) = 228.5$ horsepower. Even if a variable is not significant, we need to include it in our math to make predictions.
+
+Something you may have noticed is that there are some interesting changes from the bivariate models to the multivariate model. As you can see, a multivariate regression doesn't just do a bunch of bivariate regressions and slap those results together! What observations might we make when we consider these regressions side by side by side?
+
+-   The $\hat{\beta}$ estimates in column 3 are not equal to those in column 1 or 2. Notice how the engine size coefficient drops from 51.0 to 30.4, and the cylinder coefficient drops from 34.3 to 15.7 when both are included together.
+
+-   The $R^2$ in the multivariate model (0.645) is larger than in either of the bivariate models (0.620 and 0.602).
+
+These differences might lead to asking: if we are only focused on the relationship between two variables, why would we want to estimate a multivariate regression? For example, if we are concerned only with predicting the relationship between horsepower and engine size, what is the purpose of adding cylinder count to our analysis? Wouldn't it just get in the way and clutter the analysis?
+
+It turns out to be essential to add additional variables to a model for it to be useful. As to why, it really depends on your purpose for running your regression: is your goal ultimately prediction or hypothesis testing? Either way, nearly every application of regression is a multivariate application, but before we dig deeper into multivariate regression, let's take a brief digression into the difference between predictive modeling vs hypothesis testing.
+
+### Predictive Modeling vs Hypothesis Testing
+
+The goal of regression analysis is typically **prediction** or **hypothesis testing**.  Within the context of a typical regression model $Y = \alpha +\beta_1X_1+\beta_2X_2+...+\beta_kX_k$:
+
+-   Predictive modeling refers to a situation where your primary purpose is to predict outcome $Y$ as accurately as possible.  Statistics and data analytics tend to focus on predictive modeling.
+
+-   Hypothesis testing refers to a model where your primary purpose is to predict the impact of a particular independent variable (e.g. $X_1$) or set of independent variables (e.g. $X_1$, $X_2$, and $X_3$) on the outcome $Y$. Such a variable is commonly referred to as a *variable of interest*; that is, the whole purpose of running the regression is that we are interested in the coefficient on that variable. Economics (and social science in general) tends to focus on hypothesis testing.
+
+In either case, one should always include as independent variables *all* variables that they think might impact the value of the dependent variable, even if it is not the variable of interest.  
+
+### Predictive modeling
+
+For predictive modeling, the reason why should be clear...If you are trying to predict $Y$, leaving out relevant information will ultimately lead to less precise and accurate predictions.  As an example, imagine trying to predict horsepower using only engine size. Engine size probably matters for horsepower, but without knowing information like number of cylinders, which also probably matters, your predictions are going to be less accurate.
+
+Let's look at this more closely, using our car data from above. Column 1 has a regression with engine size as the only
+X variable, column 2 includes both engine size and cylinders.
+
+```{r}
+#| warning: false
+#| results: asis
+
+stargazer(reg_car1, reg_car3, type = "html")
+```
+
+To see which has more accurate predictions, let's make a boxplot of the residuals of both models.  Recall that the residual is equal to $\epsilon_i=Y_1-\hat{y}$, and as $\hat{y}$ is our predicted value, bigger values of $\epsilon_i$ implies less accurate predictions.
+
+
+```{r}
+a <- data.frame(Model = "Engine Size Only", Residual = resid(reg_car1))
+b <- data.frame(Model = "Engine Size + Cylinders", Residual = resid(reg_car3))
+residdata <- rbind(a,b)
+ggplot(residdata) +
+  geom_boxplot(aes(y = Residual, x = Model),
+               color = colordark,
+               fill = colorlight) +
+  theme_minimal() +
+  labs(title = "Prediction Accuracy Comparison",
+       y = "Residuals (Prediction Errors)")
+```
+
+
+Close inspection of the two boxplots shows that the one on the left has less spread, and thus more predictive accuracy. In fact, the standard deviations of the residuals from the two models are:
+
+```{r echo = TRUE}
+sd(resid(reg_car3))
+sd(resid(reg_car1))
+```
+
+Again we can see that the multivariate model has more predictive accuracy than the bivariate model.
+
+### Hypothesis testing
+
+Hypothesis testing typically focuses on attempting to estimate the "true" relationship between one or more independent variables of interest and the dependent variable.  One might naturally wonder, why worry about other variables if you are only interested in one specific $\hat{\beta}$?  The answer lies in developing a bit deeper intuition of how the regression math works.  Ordinary least squares works by attributing the variation in the dependent variable Y to the variation in your independent variables.  Consider the model $Y=\alpha +\beta X + \epsilon$: it turns out that if you go through the calculus behind OLS, you will find that $\beta=\frac{cov(X,Y)}{var(X)}$, an expression that basically means that $\beta$ is calculating the extent to which variation in $Y$ (that's the $var(Y)$ part) is happening jointly with the variation in $X$ (that's the $cov(X,Y)$ part).
+
+The big concern here is that maybe your variable of interest ($X_1$) is correlated (**multicollinear**) with another variable not in your model ($X_2$), so your estimate of $\hat{\beta}$ will include both the direct effect of $X_1$ ***and*** the indirect effect of $X_2$ to the extent $X_2$ is correlated with $X_1$.  This is referred to as **omitted variable bias**, which we will discuss more in @sec-assumptions.  For the purposes of hypothesis testing, however, if what we really care about is the *true* effect of $X_1$ on $Y$, then we need to include any other variables ($X_2$, $X_3$, etc) that we also think might have an effect on $Y$ as well. Failing to include such variables means that your estimated coefficient on $X_1$ will be inaccurate.
+
+### Multivariate Models, Part Deux
+
+Let's revisit the regressions from above with the cars04 data:
+
+```{r}
+#| warning: false
+#| results: asis
+
+stargazer(reg_car1, reg_car2, reg_car3, type = "html")
+```
+
+* The $\hat{\beta}$ estimates in column 3 are not equal to those in column 1 or 2.  As noted above, this is expected and is probably a sign that column 3 is a better model the other 2.
+
+* The $R^2$ in the multivariate model is larger than in either of the bivariate models.  This *by definition* has to be true; or at least, the $R^2$ cannot *fall*.  Recall that our coefficient of determination, $R^2$, roughly measures the percentage of variation in $Y$ that is explained by our independent variable(s).  In other words, how much of the variation in $Y$ is explained by the **information** contained with in our $X$ variables. Adding more $X$ variables does not remove information, it only potentially adds information. If I added a variable that had no explanatory power to this model, $R^2$ might not go up, but it certainly can't go down!  
+
+* So why not just add a bunch of variables?  If $R^2$ can only go up, why not run what is often referred to as a **kitchen sink** regression and include every variable I can think of?  This results in a problem called **overfitting**, and to avoid this we look to the adjusted $R^2$.  Adjusted $R^2$ is simply $R^2$ but adds a penalty for the number of independent variables included in the model.  Basically, the idea is to only add another variable to your model if that variable adds a significant amount of explanatory power. Say you estimate a multivariate model and are wondering if you should add another variable.  By definition, adding that variable will cause $R^2$ to go up.  But if adding that variable causes adjusted $R^2$ to fall, then you shouldn't do it, because adding the variable does not add enough information to the model to justify its inclusion.  
+
+::: callout-tip
+###### Data Storytelling: Overfitting, And When "Science" Stops Being Science.
+
+So let's think a little about this idea of overfitting and why it matters.  Above I just said "it's bad" but didn't really discuss why.  Let's think through an example.  Imagine you're trying to predict college GPA. You start simple: maybe high school GPA matters. It probably does! Then you add more variables: high school GPA, SAT scores, family income, athlete status, hours studied per week. Good! But then you keep going: high school GPA, SAT scores, family income, hours studied, by gender, by race, by first-generation status, by rural vs urban, by birth month, whether they're left-handed...
+
+Pretty soon, every student becomes their own unique category. You've created a model that perfectly "explains" your data because everyone is in their own little box. But you haven't actually learned anything useful about what drives academic success - you've just created 1,000 categories for 1,000 students. Sure, you can "predict" a 3.27 GPA for left-handed Hispanic first-generation female athletes from rural Nebraska who had 3.45 high school GPAs, study 14 hours per week, and are majoring in economics with a minor in American history. But how useful is that prediction when you'll probably never encounter a second left-handed Hispanic first-generation female athlete from rural Nebraska with those exact characteristics? And what do you do with the left-handed Hispanic first-generation female athlete from rural *Kansas* who studies 15 hours per week? When a new student shows up who doesn't fit perfectly into one of your hyper-specific boxes, your model has nothing useful to say.
+
+By the way, this is exactly why social science theories based on "lived experience" are, at their core, unscientific. If every person's lived experience is truly unique and irreducible - which is kinda the whole premise of the intersectionality world - then it becomes impossible to predict anything about anyone else. You end up with 1,000 just-so stories for 1,000 people, but zero ability to make useful generalizations. It's the humanities equivalent of overfitting: it explains everything therefore predicts nothing.
+
+:::
+
+### The Importance of Controls
+
+Let's take a look at one more regression to see the importance of **controlling for** all the relevant variables in a regression. The idea of controlling for variables simply means to take them into account when doing analysis, and one of the most straightforward ways to do so is to directly include them in your regression. Let's see this in action by revisiting the education regression from above using the `meap01` data to estimate the relationship between educational expenditures and test scores:
+
+```{r}
+#| warning: false
+#| results: asis
+
+stargazer(reg_ed, type = "html")
+```
+
+Recall, we had found a negative relationship between expenditures and math scores.  Let's add a second variable to this model, the percent of students eligible for free or reduced lunch:
+
+```{r}
+#| warning: false
+#| results: asis
+
+reg_ed2 <- lm(math4 ~ exppp + lunch, data = meap01)
+stargazer(reg_ed, reg_ed2, type = "html")
+```
+
+The $R^2$ shot up, and now we see that per pupil expenditures is positively (and significantly) correlated with student math scores, while the percent of students eligible for free or reduced lunch (a measure of what percent of the students in the school live at or below the poverty liine) is negative and significant. So what is this saying? First, we should not that the significantly improved $R^2$ is at least suggestive that the model with controls is better at describing the world. But what to make of the signs flipping gaining significance, and so forth?
+
+The key insight here is that not including a variable in a regression is the same as assuming the coefficient is zero! The univariate model assumed, implicitly, that poverty rates (or at least our proxy for poverty rates) have zero impact on student performance. Which is probably wrong.
+
+So what's going on here? Schools with lots of poor kids are spending more per student than schools in wealthy areas. And this makes sense once you think about it. Poor districts often get extra state and federal funding specifically targeted at helping disadvantaged students. They spend it on free breakfast programs, extra counselors, smaller class sizes, and various support services.
+
+Meanwhile, schools in wealthy districts have kids showing up with advantages that money can't easily buy—parents who read to them, help with homework, and supplement their education at home. Those schools get good results partly because the students arrive with a head start.
+
+Here's where it gets tricky: when we looked at spending versus test scores without controlling for poverty, we were inadvertently comparing two very different types of schools. High-spending schools tend to serve poor kids (who face more challenges), while low-spending schools tend to serve wealthy kids (who have more advantages).
+
+So the univariate regression was essentially asking "Do schools that spend more get better results?" But that's the wrong question! What we really want to know is "Do schools that spend more get better results when serving similar student populations?"
+
+The negative relationship we saw initially was driven by the fact that schools needing the most help (serving poor students) were spending the most money, while schools facing easier conditions (serving wealthy students) could achieve good results with less spending. Once we control for student poverty levels, we can actually see whether additional spending helps schools serving similar populations.
+
+### Statistical vs. Economic Significance
+
+In the previous example, we found that per pupil expenditures were positively and significantly correlated with student math scores. The significance we find by looking at stars in our regression output is a statistical significance, a shorthand way of stating that we are pretty certain that the coefficient is not really equal to zero. Which is cool and all, but not equal to zero does not imply that it is actually big! When using regression and econometrics for real world problems, we should care about both *statistical significance* AND *economic*, or *real world*, *significance*. While statistical significance is all about asking the question of if something is really 0 or not, economic or real world significance focuses on the question of whether or not the effect is big or small.
+
+Ascertaining economic significance is far less straightforward than statistical significance; statistical significance is, after all, just a matter of whether or not some test statistic is greater or less than some threshold of significance. Economic significance is messy, relies on using one's economic intuition and understanding of the real world situation, and often can be politically or normatively charged.
+
+Again, turning to the educational example from above:
+
+```{r}
+#| warning: false
+#| results: asis
+
+stargazer(reg_ed2, type = "html")
+```
+
+This says that per pupil expenditure is statistically significant and positive. But is that number big? In other words, we have evidence that putting more money into schools helps with math scores, but how much does it help? What kind of "bang for your buck" do you get by funding schools more?  
+
+We start tackling this question by looking at the size of the coefficient and thinking about the units of measure involved. The expenditures per student variable is measured in dollars per student, and the math variable is the percent of students who pass a math test, so $\beta=.002$ means that for each additional dollar per pupil, the math passage rate will go up by 0.002%. This is hard to contextualize, so let's do a little more math. We can use the data transformation trick we saw a bit earlier in this chapter to reframe this as saying that, for each additional \$1,000 per pupil, the math passage rate will increase by 2%.  Now these numbers are in magnitudes that are easier for us to think about. 
+
+Now that we have an easier to think about relationship, we can start digging into the data to create some more context.  Is \$1,000 a lot of money? Is 2% a big increase?  Let's look at some summary statistics of both variables:
+
+```{r}
+#| warning: false
+#| results: asis
+
+meap01  |>  
+  select(exppp, math4) %>% 
+  stargazer(data = ., type = "html")
+```
+
+This shows us that the mean expenditure per pupil is \$5,195 (clearly the data is from a couple decades ago!), with a standard deviation of \$1,092, so in this context \$1,000 is indeed a lot of money.  For the typical school, an increase of \$1,000 per student would represent a 20% increase in budget! On the other hand, the typical math passage rate is 71.9%, with a standard deviation of 20%. To visualize how big 2% is in the context of math scores, below is a histogram of the $math4$ variable with `binwidth=2`; an increase of \$1,000 per student in funding will move a school to the right by one of the bars in the histogram.
+
+```{r}
+meap01  |>  
+  ggplot(aes(x = math4)) +
+  geom_histogram(binwidth = 2, color = colordark, fill = colorlight) +
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,0)) +
+  theme_minimal() +
+  labs(x = "Math Test Pass Rate",
+       y = "Count")
+```
+
+So, back to the original question; while the result is significant statistically, is it significant economically? Is it big? My impression from looking at these data is that no, it is not big. In this data, an extra \$1,000 per pupil represents a relatively large budgetary increase that would have a very small impact on test scores. An extra \$1,000 pupil will not transform a poorly-performing school into a school with even middling math scores, nor will it transform an average-performing school into a top performer.
+
+Perhaps this conclusion sits well with you. Perhaps it does not. Regardless, the correct path forward is not to condescendingly say "I told you so" with misplaced sense of smug sanctimoniousness to those who do not like this conclusion, or to go on social media to decry me as someone who hates education and eats children to try to get me canceled for wrongthink. 
+
+The correct path forward *in either case* is to ask the question as to whether or not this is the right model; has the analysis captured all of the relevant variables, or is something missing? One illustrates the accuracy of a model by demonstrating that it is specified correctly and nothing is missing, and one demonstrates the weakness of a model by arguing that something is wrong or missing, and showing that, if corrected, the coefficient I was interpreting changes in a meaningful way.
+
+### The Chow Test
+
+As we saw with the education example, if we don't include a variable in our models, we're implicitly assuming that variable doesn't matter. But sometimes the issue isn't just a missing variable—sometimes the entire relationship is fundamentally different for different groups.
+
+Consider our first regression looking at the relationship between engine size and horsepower. That regression assumed one universal relationship applies to all cars. But what if that's wrong?  But what if foreign engineers are just better at squeezing power out of engines than American engineers? Or what if different design philosophies lead to fundamentally different engine-to-power relationships? Or physics is different outside the US? Maybe they're just "built different"?
+
+OK, physics definitely works the same everywhere, but the engineering and design philosophy differences could certainly be real. We just learned about controlling for variables by including them in our regression. But here's another way to think about controlling for group differences: what if the entire relationship between engine size and horsepower is fundamentally different for different groups?
+
+Rather than trying to control for domestic vs. foreign within a regression (though we will learn how to do this in @sec-categorialIV!), we could run separate regressions—one for domestic cars and one for foreign cars—and see if we get meaningfully different results.
+
+This is exactly what the Chow test [@chow1960] helps us figure out. It's a statistical test that answers the question: "Are we better off with one regression for everyone, or should we split our data into groups and run separate regressions?"
+
+Let's see this in action...I'm going to grab and clean up the code from @sec-wrangling Data Wrangling where we created the foreign/domestic variable for our cars:
+
+```{r}
+domestic_cars <- c("GMC",
+                   "Chevrolet", 
+                   "Ford", 
+                   "Saturn", 
+                   "Dodge", 
+                   "Jeep", 
+                   "Pontiac", 
+                   "Buick",
+                   "Chrysler",
+                   "Oldsmobile", 
+                   "Lincoln",
+                   "Cadillac", 
+                   "Mercury", 
+                   "Hummer")
+
+cars04 <- cars04 |> 
+  mutate(make = word(name, 1)) |> 
+  mutate(make = case_when(
+    make == "Chrvsler" ~ "Chrysler",
+    make == "CMC" ~ "GMC",
+    make == "Mazda3" ~ "Mazda",
+    make == "Mazda6" ~ "Mazda",
+    make == "Land" ~ "Land Rover",
+    TRUE ~ make
+  )) |> 
+  mutate(origin = if_else(make %in% domestic_cars, "Domestic", "Foreign"))
+
+```
+
+Now, we will run three regressions:  
+
+```{r}
+# Run separate regressions for each group
+domestic_reg <- cars04 |> 
+  filter(origin == "Domestic") |> 
+  lm(horsepwr ~ eng_size, data = _ )
+  
+foreign_reg <- cars04 |> 
+  filter(origin == "Foreign") |> 
+  lm(horsepwr ~ eng_size, data = _ )
+pooled_reg <- lm(horsepwr ~ eng_size, data = cars04)
+```
+
+The first two regressions use the pipe operator to filter the data before running the regression. The data = _ part tells R to use whatever data is piped in from the previous step - so domestic_reg uses only the domestic cars, and foreign_reg uses only the foreign cars. The third regression, pooled_reg, uses all the cars together without any filtering - this is our baseline "one size fits all" approach.
+
+Let's look at these using `stargazer` to see if splitting the data gives us meaningfully different results:
+
+```{r}
+#| results: asis
+#| message: false
+#| warning: false
+
+stargazer(domestic_reg, foreign_reg, pooled_reg, type = "html")
+```
+They certainly look different. The foreign cars seem to squeeze an extra 14 horsepower out of each liter of engine size (62.6 vs 48.3). But is that difference big enough to matter statistically?
+
+Basically, we're asking whether the difference in those engine size coefficients is statistically significant. Put another way: was splitting our sample into separate regressions the right move, or should we stick with the pooled regression that treats all cars the same? 
+
+To figure this out, we will do the Chow test.
+
+```{r}
+cars04 <- cars04 |> arrange(origin)
+breakpoint <- nrow(filter(cars04, origin == "Domestic"))
+sctest(horsepwr ~ eng_size, type = "Chow", point = breakpoint, data = cars04)
+```
+
+Let's break down what this code is doing. First, note that you need to load the `strucchange` package to get access to the `sctest()` function, if you haven't already (I did it in the first code chunk of this chapter, because I told myself that was a good idea back in @sec-litprog Literate Programming and I'm trying to model good behavior for you!).
+
+Next, we sort our data by origin using `arrange(origin)`. This puts all the domestic cars first, followed by all the foreign cars. Then we calculate the breakpoint - this tells R where to split the data. The `sctest` function needs to know which cars are foreign and which are domestic, so we are going to identify the row where it switches from one to the other. The `nrow(filter(cars04, origin == "Domestic"))` counts how many domestic cars we have (147) by filtering the dataset to only domestic cars and then counting the rows  with `nrow()`. Now, R knows to test whether the first 147 observations are different from the remaining 281 observations.
+
+The Chow test gives us an F-statistic of 60.997 with a p-value that's essentially zero. So, yeah, these relationships are definitely different. The domestic and foreign car manufacturers seem to have different approaches to converting engine size into horsepower, so further analysis of the data suggests that we should make sure we control for Foreign vs. Domestic cars. 
+
+This confirms what we saw in our side-by-side regressions - foreign cars are significantly more efficient at squeezing power out of their engines (62.6 HP per liter vs 48.3 HP per liter). The test tells us this difference is way too big to be just random variation.
+
+## Wrapping Up
+ 
+At this point, you should be able to use R to estimate simple bivariate and multivariate OLS regressions, interpret the output, and understand when your results might be misleading due to omitted variables. You've learned that adding variables to a regression isn't just about getting a higher R-squared—it's about getting the right answer to your research question.
+
+We've also seen that sometimes the best approach isn't cramming everything into one model, but asking whether different groups need different models entirely. The Chow test gives us a formal way to test this intuition.
+
+But all of this assumes our regressions are actually valid in the first place. What if they're not? What if we're violating fundamental assumptions that make our beautiful stargazer tables completely meaningless? That's what we tackle next when we dive into the key assumptions underlying OLS regression.
+
+## Excercises
+
+Data Transformations and Model Comparisons:
+
+1.    Using the cars04 data from the chapter, create a new variable for engine size measured in cubic centimeters (cc) instead of liters. Since 1 liter = 1000 cc, this means multiplying `eng_size` by 1000. Run the horsepower regression using both the original engine size (in liters) and your new variable (in cc). Compare the results—do the coefficients look different? Are they actually different? Which version is more intuitive to interpret and why?
+
+2.    Return to the education spending example from the chapter. Create a version of the expenditure variable measured in thousands of dollars (divide `exppp` by 1000). Re-run the regression with this transformed variable and compare it to the original. How do the coefficients and interpretation change? Which version tells a clearer story?
+
+Bivariate Regression Practice:
+
+For exercises 3-5, create a scatterplot with regression line, estimate the regression with stargazer, identify the 3 largest outliers (biggest residuals in absolute value), and interpret your findings.
+
+3.    Using `wooldridge:wage1`, examine the relationship between education (`educ`) and wages (`wage`).
+
+4.    Using `wooldridge:bwght`, look at how maternal smoking during pregnancy (`packs` - packs per day) affects birth weight (`bwght`).
+
+5.    Using `AER:Affairs`, examine whether years married (`yearsmarried`) predicts number of affairs (`affairs`).
+
+Testing for Different Relationships:
+
+6.    Using the `cars04` data, test whether domestic and foreign cars have fundamentally different engineering approaches. Pick two different relationships to examine; for example, (a) engine size (`eng_size`) vs. fuel efficiency (`city_mpg`), or (b) weight (`weight`) vs. fuel efficiency (`city_mpg`). Or something else that intrigues you. For each relationship, run separate regressions by origin, then use Chow tests to determine if the relationships are significantly different. What do your results suggest about different design philosophies between domestic and foreign manufacturers? If you want to get fancy, you could also test whether other groupings (like pickup vs. non-pickup, or SUV vs. non-SUV) show different relationships.
+
+7.    Using the `CPS1985` data from previous chapters, test whether the wage~education relationship differs between men and women. Run separate regressions by gender and use a Chow test to determine if the relationships are significantly different. Based on your results, should economists model male and female labor markets separately when studying the returns to education?
+
+Model Building Challenge:
+
+For exercises 8-9, examine the data and help files to build good multivariate regression models. Start simple with bivariate regressions, then gradually add variables. Pay attention to how coefficients change as you add controls—do any flip signs or change magnitude dramatically? Think about what these changes tell you. Perhaps do both and see how similar/different the two states are.  This is tricky, because they don't have identical variables in the datasets.
+
+8.    Using `AER:MASchools`, build a model to predict 4th grade test scores (`score4`).
+
+9.    Using `AER:CASchools`, predict math scores (`math`). You'll need to create a class size variable from `students` and `teachers`. 
+
+
+

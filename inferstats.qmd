@@ -1,0 +1,540 @@
+# Inferential Statistics with R {#sec-inferstats}
+
+This chapter provides a brief review of inferential statistics, including both basic univariate tests and some multivariate models, such as the t-test, ANOVA, and chi-square ($\chi^2$). The other major family of multivariate models, regression, will be given a much more detailed treatment starting in Chapter \@ref(basicreg), as regression modeling is the cornerstone of econometrics.
+
+As always, let's start by loading the relevant libraries and datasets into memory.
+
+```{r}
+#| warning: false
+#| message: false
+
+library(tidyverse)
+library(openintro)
+library(Ecdat)
+library(wooldridge)
+library(AER)
+
+data(fact_opinion)
+data(k401k)
+data(CPS1985)
+data(Fair)
+
+# Setup Colors!
+colorlight <- "lightsteelblue"
+colordark <- "steelblue"
+```
+
+## One-Sample t-test
+
+Let's start simple, with the humble 1-sample t-test. A 1-sample t-test is used to test a hypothesis about the mean of a specific variable.
+
+Fun fact about the t-distribution: it was developed by a dude named William Sealy Gosset who was just trying to use statistics to make better beer at Guinness. But Guinness didn't let him publish under his own name; I think it's because they didn't want the world to know they were using statistics to make better beer, and they thought of it as a trade secret. Or maybe that they didn't want people to think that Guinness was beer for math nerds, who knows? Either way, he had to publish the thing under a pseudonym: Student. Hence, the t-distribution is often referred to as the Student t-distribution.  So, let's not forget that statistics comes from a good place!
+
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| out-width: 50%
+#| fig-alt: 'Guinness meme. A pint of Guinness with a foamy head on a black background.  The caption reads "Old School Data Science"'
+
+knitr::include_graphics("images/guinness.jpg")
+```
+
+We can illustrate the 1-sample t-test using the `k401k` data set from the `wooldridge` package. As always, `?k401k` is a good way to get information about a data set.
+
+```{r}
+#| eval: false
+?k401k
+```
+
+This data includes features about `r nrow(k401k)` 401k plans in the US. Suppose we are interested in the 401k match rate (i.e. for every dollar the 401k owner puts in, how much will the employer match with?), which is found in the `mrate` variable. To get a general overview of the data, we can look at the distribution of the contribution match rate with a simple histogram:
+
+```{r}
+k401k|> ggplot(aes(x = mrate)) +
+  geom_histogram(binwidth = .2,
+                 fill = colorlight,
+                 color = colordark) +
+  theme_minimal() +  
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  scale_x_continuous(expand = c(0, 0),
+                     labels = scales::percent_format()) +
+  labs(y = "Number of 401k Plans",
+       x = "Match Rate",
+       title = "Distribution of 401k Match Rates")
+```
+
+Just eyeballing the graph, it's hard to get a handle on what the mean is. It looks like the median and modal match rate are probably 50%, but it seems like there are some plans with some pretty generous match rates out there (not anywhere I've ever worked, sadly) as this data is heavily right-skewed.
+
+Suppose somebody tells you that the average (mean) match rate among 401k plans is 75%. Maybe it's the HR guy at a company trying to hire you, trying to convince you that their company's 75% match rate is competitive. Or maybe it's the union rep where you work, trying to encourage workers to strike until the company raises their 50% match rate which is way lower than the industry standard. Or maybe it's a line in an article in the Wall Street Journal or Barron's or the like talking about the current state of 401k programs in the USA. In any event, now I'm curious, and testing whether or not this is true is where the one-sample t-test comes in.
+
+We can summarize the data and see that the mean in the data is `r 100*round(mean(k401k$mrate), digits = 4)`%:
+
+```{r}
+summary(k401k$mrate)
+```
+
+It's nearly 75%, but not quite. But is that far enough below 75% to dismiss the 75% claim? In other words, is it possible that the true mean actually is 75%, but by random chance our sample is not truly representative of the universe of 401k plans? Maybe our sample has disproportionately fewer 401ks with high match rates and more 401ks with low match rates than is true of the overall population? Sorting out this question is the intuition behind the one-sample t-test.
+
+As a reminder, all inferential statistics relies on *Null* and *Alternative* Hypotheses. While most textbooks start with the Null Hypothesis, I prefer to work backward from the Alternative Hypothesis ($H_1$); this is typically the statement that the researcher is trying to prove is true. But the paradigm of science says that things cannot be proven to be true, they can only be proven to be false. So how do you prove something is true if science doesn't allow it? Proof by negation. You prove everything **but** $H_1$ is false, and if you can do that, then by default $H_1$ must be true. This is where the Null Hypothesis ($H_0$) comes in. This is the negation of $H_1$, and to prove that $H_1$ is true, then $H_0$ must be proven false.
+
+In our 401k case, our hypothesis is about our population mean ($\mu$), so we have:
+
+-   $H_0$: $\mu = .75$
+-   $H_1$: $\mu \ne .75$
+
+In economics, it is common to use the confidence level of 0.95 (or $p<0.05$).
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| out-width: 70%
+#| fig-alt: 'Harry Potter Mirror of Erised meme titled "Econometrics at Hogwarts". Harry asks Dumbledore "What does this mirror do, Professor?" Dumbledore replies "It shows us nothing more or less than the deepest, most desperate desire of our hearts." The final panel reveals the mirror showing "P<0.05".'
+
+knitr::include_graphics("images/significantharry.jpg")
+```
+
+The t-test is executed with the `t.test()` function.
+
+```{r}
+t.test(k401k$mrate, 
+       alternative = "two.sided", 
+       mu = .75, 
+       conf.level = 0.95)
+```
+
+Here, we see the results of the t-test. The results state that we do not have enough evidence to reject $H_0$, the expert's claim. Why not? There are quite a few things in the output that indicate that we should not reject $H_0$:
+
+-   the p-value ($p=0.3531$) is not less than 0.05
+-   the confidence interval (.69 to 0.77) includes our hypothesized value of 0.75
+-   the t value (-0.929) is not in the rejection region (it would have to be less than -1.96...you can use the `qt()` function to look up t-values)
+
+Let's say that this same source tells you that the average participation rate, `prate`, in 401k programs is over 90%. Notice the directional claim here - they're not just saying it's different from 90%, they're saying it's over 90%. This indicates a one-sided test, where:
+
+-   $H_0$: $\mu \geq .9$
+-   $H_1$: $\mu < .9$
+
+We can calculate a one-sided t-test for `prate` as follows:
+
+```{r}
+t.test(k401k$prate, 
+       alternative = "less", 
+       mu = 90, 
+       conf.level = .95)
+```
+
+This suggests that we reject the null hypothesis, that the mean in the data set of `r round(mean(k401k$prate), 1)` is far enough below 90 to say that the true mean is probably below 90. We see this in the results because:
+
+-   the p-value ($p=4.135e-10$) is definitely less than 0.05
+-   the confidence interval ($-\infty$ to 88.1) does not include our hypothesized value of 90
+-   the t value (-6.18) is in the rejection region (for this test it starts around -1.65)
+
+::: callout-tip
+###### Tip from the Helpdesk: Scientific Notation - Don't Miss the Forest for the Trees
+
+When you see something like p=4.135e−10, that's scientific notation meaning $4.135 \times 10^{-10}$ which equals 0.0000000004135. The key thing to remember: this is an *incredibly* small number ... way smaller than our 0.05 threshold!
+
+People new to R mess this up all the time! They see "4.135" and think "that's bigger than 0.05, so it's not significant." Nope! Always look at the whole number, including that "e-10" part. The scientific notation is just R's way of avoiding writing out a bunch of zeros!
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-alt: 'Spiderman pointing at Spiderman Meme.  First Spiderman: 4.135e−10. Second Spiderman: 0.0000000004135'
+#| out-width: 70%
+
+knitr::include_graphics("images/scientific_spidey.jpg")
+```
+
+:::
+
+It is often useful to store the results of a test in an object, for example:
+
+```{r}
+test1 <- t.test(k401k$prate, 
+                alternative = "less", 
+                mu = 90, 
+                conf.level = .95)
+```
+
+When you store your test as an object, you don't get any output in your console, instead, R creates an object in your environment window based on the name you assigned your object. This code created an object for me called `test1`.
+
+To see what is in this object, we can see what its `attributes()` are:
+
+```{r}
+attributes(test1)
+```
+
+Now, you can refer to these elements using the `$` notation, for example:
+
+```{r}
+test1$statistic
+test1$estimate
+```
+
+::: callout-tip
+###### May the Format Be With You: Let R Write Your Paper
+
+When writing reports, you'll often want to reference specific test statistics or p-values in your text. Rather than running the test, noting the number, and typing it into your document (and risking typos!), you can use inline code to let R do the work.
+
+For example, instead of writing:
+
+-   The t-statistic was -6.18.
+
+you can write:
+
+-   The t-statistic was &#96;r round(test1\$statistic, 2)&#96;.
+
+When your document renders, R executes everything inside the backticks and includes the results **inline**-that is, as part of the text! The `round()` function ensures your text shows a clean "-6.18" instead of the full "-6.178623" that R calculates. The code calculates and automatically inserts the correct value, and in the rendered version you will see this:
+
+-   The t-statistic was `r round(test1$statistic, 2)`.
+
+Which is identical to if you had just typed it out. So you might wonder, why bother if it looks the same? For starters, if your data changes, your text updates automatically - no more hunting through your paper to fix outdated numbers. Secondly, no typos! Finally, once you get used to the method, it's actually *faster* to just write the inline code than it would be to do the calculations and put them into your text!
+:::
+
+## Two-Sample t-test
+
+The two-sample t-test is used to compare the means of two populations. Typically, you are looking at a situation where you have a numeric dependent variable that you think varies based on the value of some categorical independent variable that has two possible levels.
+
+To see this in action, let's check out a dataset in the `openintro` library called `fact_opinion`. As usual, you should take a look at the documentation with `?fact_opinion`. The dataset is pretty straightforward and comes from Pew Research, where the researchers asked participants to identify whether a particular statement was stating a fact or stating an opinion. There were 10 total statements, 5 of each type, and we have data from 5,035 respondents. So, we have data on how many of each type of statement each respondent classified correctly, and we also have a variable that states what `age_group` they are in: 19-49 or 50+.
+
+This is the sort of data that is amenable to a two sample t-test. We have a natural research question: which age group is better at identifying fact vs opinion? Our independent variable, `age_group`, is categorical with two possible values, and there are two possible dependent variables, `fact_correct` and `opinion_correct`, that are numeric. Ok, technically they are discrete, and you'd ideally prefer to do a t-test on continuous data, but the sample size is big enough that this is a minor quibble...but I digress. Back to the t-test!
+
+Before jumping into the statistical test, let's look at some basic summary statistics to get a sense of the differences between age groups:
+
+```{r}
+facttable <- fact_opinion |> 
+  group_by(age_group) |> 
+  summarize(fact_correct = mean(fact_correct),
+            opinion_correct = mean(opinion_correct),
+            count = n())
+
+knitr::kable(facttable,
+             col.names = c("Age Group", "Mean Fact Score", "Mean Opinion Score", "Count"))
+```
+
+From the table, it seems that the younger group does better on both, and the difference is more pronounced when classifying opinion statements than factual statements. But just because the means are different doesn't mean the differences are statistically significant? Time for our t-tests!
+
+::: callout-tip
+###### Data Storytelling: When Good Graphs Go Bad
+
+Ordinarily, one might begin this sort of analysis with a visualization. Let's see what happens if we try our usual approach of creating boxplots to compare groups:
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Factual Statements"
+#|   - "Opinion Statements"
+
+# Graph 1 code
+fact_opinion |> 
+  ggplot(aes(y = fact_correct, x = age_group)) +
+  geom_boxplot(fill = colorlight, color = colordark, linewidth = 1) +
+  theme_minimal() +
+  labs(title = "Factual Statements Correctly Classified (out of 5)",
+       x = "Age Group",
+       y = "Correct Classifications")
+
+# Graph 2 code  
+fact_opinion |> 
+  ggplot(aes(y = opinion_correct, x = age_group)) +
+  geom_boxplot(fill = colorlight, color = colordark, linewidth = 1) +
+  theme_minimal() +
+  labs(title = "Opinion Statements Correctly Classified (out of 5)",
+       x = "Age Group",
+       y = "Correct Classifications")
+```
+
+Something looks off about these boxplots, right? Notice how the factual statements graph has no upper whiskers for either age group, and the opinion statements graph shows that the measure of central tendency for both groups is *identical*.
+
+Here's the deal: this is not a good graph and I know it. I actually put in a little extra effort to make these graphs look good to illustrate a point. Just because a graph **looks** good doesn't make it a good graph. One of the easiest ways to lie with statistics is quite simply to have good-looking graphs that tell an inaccurate story. The quality of the appearance creates a halo effect around the visualization and lends credence to the analysis, even when the graph is fundamentally flawed, or worse, intentionally misleading.
+
+This is a perfect example of why choosing the right visualization matters! When your data only has a few discrete values (0, 1, 2, 3, 4, 5 in our case), boxplots can be misleading. The "quartiles" don't represent meaningful breakpoints when most people scored 4 or 5 out of 5. Those missing upper whiskers? That's because the third quartile equals the maximum value—everyone who didn't get a perfect score clustered at 4 out of 5.
+
+Sometimes a graph just isn't the right tool for the job and we need to use numbers. For discrete data like this, summary statistics often tell a clearer story than boxplots.
+:::
+
+We should begin our t-tests by stating our Null and Alternative Hypotheses for the two t-tests we are about to run. Our hypothesis is about our population mean (mu), so we have:
+
+-   $H_0$: $\mu_{18-49} = \mu_{50+}$
+-   $H_1$: $\mu_{18-49} \ne \mu_{50+}$
+
+In other words, the Null Hypothesis is that both age groups are equally good at discerning fact from opinion, whereas the Alternative Hypothesis is that the groups are in fact different in their capacity to differentiate fact from opinion. Based on the summary statistics from above, it looks like there might be a difference, but we should do the statistical test to be certain. We'll use the same `t.test()` command as before, start with the factual statements.
+
+```{r}
+t.test(fact_opinion$fact_correct ~ fact_opinion$age_group,
+        mu = 0,
+        alt = "two.sided",
+        conf.level = .95)
+```
+
+The first argument in this code is a little tricky, so let's take a second to understand it, in particular, the squiggly thing in the middle of `fact_opinion$fact_correct ~ fact_opinion$age_group`. This guy is called a **tilde**, and on computers with the standard US keyboard it shares the key with the backtick. In R, the tilde `~` is the formula operator; when I see I a tilde, in my head I say *is a function of* so I read `fact_opinion$fact_correct ~ fact_opinion$age_group` to say that the ability to identify something as a fact *is a function of* age. The general form, then, is: Dependent Variable $\sim$ Independent Variable. This is an important concept to get, because we will be using the tilde a lot!
+
+The other thing in this code that is, at first glance, a bit confusing is the option `mu = 0`. This is here because, technically, we are testing the difference between the group means and whether or not that is zero. In other words, actual null hypothesis that R is testing is $H_0$: $\mu_{18-49} - \mu_{50+} = 0$.
+
+But that having been said, most of the arguments in this code are the default parameters of the `t.test()` function anyhow. When you look at the help for `t.test` using `?t.test`, it tells you what the default values are. The options `mu = 0, alt = "two.sided", conf.level = .95` are all defaults, so this code could have been simplified to just `t.test(fact_opinion$fact_correct ~ fact_opinion$age_group)` and we would have been fine.
+
+So what do these results tell us? That we reject the null hypothesis!
+
+-   the p-value ($p=$ 2.2e-16) is definitely less than 0.05. In fact, 2.2e-16 is quite literally the smallest number that R can display without going to zero!
+-   the confidence interval (.27 to .43) does not include our hypothesized difference in means of 0
+-   the t test statistic (8.76) is in the rejection region; for this test our critical t value will be roughly $\pm$ 1.96
+
+Let's go ahead and take a look at the other t-test, the one that looks at opinion statements.
+
+```{r}
+t.test(fact_opinion$opinion_correct ~ fact_opinion$age_group,
+        mu = 0,
+        alt = "two.sided",
+        conf.level = .95)
+```
+
+Again, we reject the null hypothesis!
+
+-   the p-value ($p=$ 2.2e-16) is miniscule
+-   the confidence interval (.40 to .55) does not include 0
+-   the t test statistic (12.64) is in the rejection region; because the sample size is the same as in the last test, our critical t value is still right around $\pm$ 1.96
+
+::: callout-tip
+Data Storytelling: Don't Skip Tests (Even If You Think the Answer is Obvious)
+
+Did we actually have to run that second t-test? The difference in means was bigger for opinion statements (0.47) than for factual statements (0.35), and it's the same dataset, so surely if the first one was statistically significant, this one would be too, right?
+
+Not necessarily! Statistical significance depends on more than just the size of the difference...it also depends on how much variability there is within each group. If people's scores on opinion statements were all over the map (high standard deviation), even a big difference in means might not be statistically significant. But if everyone scored pretty similarly within their age group (low standard deviation), even a small difference might be highly significant.
+
+The lesson? When it's easy to run the test in R, just run it. Don't try to predict statistical significance by eyeballing means alone.
+
+BTW: In this case, the standard deviations for opinion statements were actually lower than for factual statements, which helps explain why we got such a strong result. But I'm still glad I ran the test rather than assuming!
+:::
+
+## ANOVA
+
+**ANOVA** stands for **Analysis of Variance** and is a very common statistical technique in experimental sciences where one can run an experiment with a control group and multiple treatment groups. Though there are some notable exceptions, economics is not usually viewed as an experimental science. However, ANOVA is a special case of regression analysis, which is at the core of econometrics.
+
+In many ways, ANOVA is just an amped-up 2-sample t-test; amped-up because you can have your dependent variable explained by more than one independent variable, and those independent variables can have more than two **levels**. The concept of **levels** refers to how many different values a categorical variable has; our `age_group` variable from the `fact_opinion` dataset has two levels. But this means that, while the `fact_opinion` dataset was perfect for t-tests, ANOVA requires categorical variables with more than two levels. So let's return to the `CPS1985` dataset we used in the Descriptive Statistics chapter (@sec-basicstats), because the `occupation` variable in `CPS1985` has 6 levels.
+
+### One-Way ANOVA
+
+Let's calculate an ANOVA looking at the relationship between `wage` and `occupation` in he `CPS1985` data. We can start by looking at the data visually in a boxplot:
+
+```{r}
+CPS1985 |> ggplot(aes(x = occupation, y = wage)) +
+  stat_boxplot(geom = "errorbar", 
+               color = colordark,
+               width = 0.5) +
+  geom_boxplot(color = colordark, 
+               fill = colorlight) +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  labs(y = "Hourly Wage", 
+       x = "Occupation",
+       title = "Distribution of Wages by Occupation")
+```
+
+The null hypothesis in ANOVA is that ALL of the means are the same...if your categorical variable has $k$ different levels, then your null hypothesis is $\mu_1 = \mu_2 = ... = \mu_k$. The alternative is that at least one is different from at least one other. In this case, the null is then $\mu_1 \ne \mu_2$ OR $\mu_1 \ne \mu_3$ OR $\mu_1 \ne \mu_4$ OR ... OR $\mu_5 \ne \mu_6$. If you're keeping score, that expands out to 15 $(\frac{k(k-1)}{2})$ different ways we might reject the null! From the graph, It certainly looks like at least some of the means are different, but we can execute an ANOVA via the `aov()` command to test this.
+
+```{r}
+aov(wage ~ occupation, data = CPS1985)
+```
+
+The outupt of the `aov()` command doesn't actually tell us much. We need to save this test result as an object and use the `summary()` command on that object.
+
+```{r}
+anova1 <- aov(wage ~ occupation, data = CPS1985)
+summary(anova1)
+```
+
+This table tells us whether or not we reject the null hypothesis...the Pr(\>F) is our p-value, and that is way less than 0.05. so we reject the null hypothesis that all the group means are the same and accept the alternative hypothesis that at least one is different from the rest.
+
+All this tells us is that at least one of the occupational means is different from at least one other one.  But remember, since there are 6 levels of the occupation variable, there are $\frac{6*5}{2}=15$ different possibilities here! If we want to know **which** means are different, we can run the Tukey-Kremer test. To do this, we simply put our anova object into the `TukeyHSD()` function.
+
+```{r}
+TukeyHSD(anova1)
+```
+
+This shows the confidence intervals and p-values for all of the pairwise comparisons. We can display this visually by plotting the Tukey results:
+
+```{r}
+plot(TukeyHSD(anova1))
+```
+
+Ugh this is unreadable. I really don't love using Base R graphics. We need to change the orientation of the labels on the y axis (switch them to horizontal) so we can actually read them. Here it is again with a couple formatting tweaks:
+
+```{r}
+par(mar = c(3,10,3,3))
+plot(TukeyHSD(anova1), las = 1, cex.axis = .75)
+```
+
+Better, but still not pretty. This is exactly why `ggplot2` exists - but unfortunately, there's no easy `ggplot2` equivalent for Tukey plots. That said, the R community is amazing at solving problems like this - there are custom functions floating around (e.g. [@tukeyggplot] looks like a possible solution to this quandary) that can convert Tukey results into prettier `ggplot2` charts. But for our purposes, the numerical output tells us what we need to know anyway, so we'll just work with what we've got here!  
+
+When evaluating the Tukey-Kremer results, any combination where 0 is not included in the confidence interval is considered to be a significant difference. It looks like there are quite a few of them! To summarize, we are rejecting the null hypothesis because it seems like there are two tiers of wage categories that are statistically different from each other; technical and management seem to have similar wage structures, which is higher than that of  office, sales, worker, and services, who also have similar wage structures (though technically the difference between worker and services is also statistically significant).
+
+### Two-Way ANOVA
+
+The previous example is what is referred to as a one-way ANOVA; one-way refers to the fact that there is exactly one independent variable. In this case, that variable is occupation. ANOVA can include more than 1 independent variable in a version called two-way ANOVA.
+
+Two-way ANOVA is more complex and allows us to have multiple independent categorical variables. Here, let's look at wages as our dependent variable but have 2 categorical independent variables: gender and marital status.
+
+This particular ANOVA has 3 null hypotheses:
+
+-   There is no difference in wages between men and women
+-   There is no difference in wages between married and unmarried individuals
+-   There is no interaction between gender and marital status.
+
+**Interaction** is a complex idea. It is related to the idea in probability regarding independence. Here, an interaction effect would imply that either:
+
+-   The effect of gender on wages varies depends on whether or not the person is married or unmarried, or equivalently,
+-   The effect of marital status on wages depends on whether or not the person is a man or a woman.
+
+Let's take a look at this data graphically using a graph from the previous chapter:
+
+```{r}
+CPS1985 |> ggplot(aes(x = married, y = wage, fill = gender)) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = "Does Marriage Influence the Gender Wage Gap?", 
+         subtitle = "1985 CPS data",
+         x = "", 
+         y = "Wages",
+         fill = "") +
+    scale_fill_manual(values= c("deepskyblue4", "darksalmon"),
+                      labels = c("male" = "Male", "female" = "Female")) +
+    theme(legend.position = "bottom",
+          legend.direction = "horizontal") +
+    scale_x_discrete(labels = c("no" = "Unmarried", "yes" = "Married")) 
+```
+
+From the graph, it sure looks like the married men make more money than married women, but there is no difference in wages between unmarried men and unmarried women.  
+
+Let's run this ANOVA and see what the results are:
+
+```{r}
+anova2<-aov(wage ~ gender*married, data = CPS1985)
+summary(anova2)
+```
+
+We can reject all 3 null hypotheses at the 5% level. We can dig deeper into the results by looking at the Tukey-Kremer test:
+
+```{r}
+TukeyHSD(anova2)
+```
+
+The bottom panel examines the interaction effects, and is pretty interesting.
+
+-   The difference in wages between unmarried men and unmarried women is insignificant.
+-   The difference in wages between married females and unmarried females is insignificant.
+
+But:
+
+-   The difference between married women and married men is significant
+-   The difference between married men and unmarried men is significant
+
+These results reveal that the gender wage gap (at least in 1985) may not be just a simple story of "men earn more than women therefore gender discrimination." Instead, the data suggests the gap is concentrated among married workers, with unmarried men and women earning similar wages. This pattern points to marriage-specific economic factors rather than uniform discrimination - perhaps reflecting differences in job mobility, career prioritization, or employer perceptions of married workers' productivity and commitment.
+
+Let's look at one more two-way ANOVA, this time looking at gender and occupation.  One common pushback you hear against the gender discrimination thesis is that gender pay inequality is actually just a function of occupational choice; the job market doesn't pay women less than men, rather, men tend to choose higher paying occupations.  
+
+```{r}
+CPS1985 |> ggplot(aes(x = occupation, y = wage, fill = gender)) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = "Do Gender Disparities Exist Within Occupations?", 
+         subtitle = "1985 CPS data",
+         x = "Occupation", 
+         y = "Wages",
+         fill = "") +
+    scale_fill_manual(values= c("deepskyblue4", "darksalmon"),
+                      labels = c("male" = "Male", "female" = "Female")) +
+    theme(legend.position = "bottom",
+          legend.direction = "horizontal",
+          axis.ticks.x = element_blank()) 
+```
+
+```{r}
+anova3<-aov(wage ~ gender*occupation, data = CPS1985)
+summary(anova3)
+```
+Should we do a Tukey-Kremer test? we could, but we would have a bazillion lines of Tukey outupt (ok, technically it's just 82) that we'd get lost wading through.  Instead, we need to work through this numerically. And the results are actually pretty interesting!
+
+This says that the `gender` and `occupation` differences are statistically significant, but the interaction effect is not.  The insignificant interaction ($p=$ 0.142) tells us that the gender pay gap is roughly the same across all occupations. In other words, the effect of being female on wages doesn't depend on which occupation you're in - women earn less than men by roughly the same amount whether they're in management, technical roles, office work, etc.
+This is actually quite telling! If the interaction were significant, it might suggest that the gender pay gap varies by occupation - maybe women in technical roles face bigger pay gaps than women in office roles, or vice versa. But since it's not significant, we're seeing consistent gender differences across all job types.
+
+This finding challenges the simple explanations for gender pay gaps you often hear about. The significant gender effect alongside occupation effects suggests it's not just occupational sorting - women choosing lower-paying jobs. At the same time, the consistent gap across occupations (non-significant interaction) pushes back against the glass ceiling narrative, where women supposedly hit barriers only in high-status fields. Of course, this is still data from 1985, so whether these patterns hold today is an open question.
+
+Anyhow, this is enough ANOVA for me. Econometrics typically focuses on regression analysis, not ANOVA. And, for what its worth, ANOVA is just a very special case of regression analysis which we will see in @sec-categoricalIV Categorical Independent Variables.
+
+## Chi-Square
+
+The Chi-Square test (sometimes stylized as $\chi^2$) looks at relationships between 2 (or more) categorical variables. Whereas ANOVA had categorical independent variables with numeric dependent variables, Chi-Square has both categorial independent *and* dependent variables. Let's look at the `Fair` dataset from the `Ecdat` package. This data is from a 1977 paper that looks into the prevalence of extramarital affairs.  We might ask the question whether or not there is a relationship between extramarital affairs and whether or not a married couple has kids.  
+
+Let's start by making a cross tabulation of couples with kids and couples where an affair is occurring. First, we need to do a bit of data wrangling. The original dataset has a variable called `nbaffairs` that counts the number of affairs, but for our chi-square test we need a simple yes/no variable. So we'll create a new variable called `affair` that equals "yes" if someone had any affairs and "no" if they had zero affairs. Then we'll select just the two variables we need for our analysis.
+
+```{r}
+affair <- Fair |> 
+  mutate(affair = ifelse(nbaffairs==0, "no", "yes")) |> 
+  select(c(affair, child))
+table(affair)
+```
+
+On a percentage basis, it looks like affairs are more prevalent among couples with kids.  Maybe this is more clear with a graph:
+
+```{r}
+affair |> 
+  ggplot(aes(y = child, fill = affair)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = c("no" = colorlight, "yes" = colordark)) +
+  scale_x_continuous(labels = scales::percent_format(),
+                     expand = c(0, 0)) +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank()) +
+  labs(title = "Relationship Between Extramarital Affairs and Children",
+       subtitle = "Data from 1978 study",
+       x = "Percentage",
+       fill = "Affair",
+       y = "Children")
+```
+
+Is this difference big enough to be statistically significant?  This is where we call in the Chi-Square test:
+
+```{r}
+chisq.test(affair$child, affair$affair)
+```
+
+The p-value is less than .05, so it appears that there is a statistically significant difference in the rate of affairs between couples with kids from those without kids.
+
+## Wrapping Up
+
+The metnods seen in this chapter are not frequently used in either economics or data science. Because these methods require that all of the independent variables used be categorical, their primary value lies in the world of experimental research.
+
+It is very frequently the case that we want to examine independent variables that are numeric. This poses a problem for models like ANOVA and Chi-Square, because in order to use a numeric independent variable in one of these models, we need to create a set of *ad hoc* categories to fit our numeric data into, and in the process losing much of the variation (and thus information) in the data. None of this is ideal. 
+
+There is a modeling technique that allows us to use both categorical and numeric independent variables: regression analysis.  Regression forms the basic building block of econometrics and of data science, and is the focus of the irest of this text.   
+
+## End of Chapter Exercises
+
+For each exercise, state your hypotheses, create appropriate visualizations, run the statistical tests, and interpret your results in context.
+
+T-Tests:
+
+1. Using the `openintro:fact_opinion` dataset, create a new variable that represents each person's total score (combining their fact_correct and opinion_correct scores). Hint: use `mutate()` to add the two variables together. Then test whether younger adults (18-49) score significantly different from older adults (50+) on this total score. State your hypotheses, run the appropriate test, and interpret the results. Based on what we found in the text, are you surprised?
+
+2. Using the `AER:CPS1985` dataset, test whether there's a significant difference in wages between men and women. Create a boxplot to visualize the data first, then run the appropriate t-test. What can you conclude about the gender wage gap in 1985?
+
+ANOVA: 
+
+3. Use the famous `datasets:iris` data to see if any of the 4 measures of iris size (`Sepal.Length`,`Sepal.Width`,`Petal.Length`,`Petal.Width`) varies by iris `Species`. Create boxplots and analyze each of the flower characteristics with one-way ANOVA, and if any of your ANOVAs indicate that you should reject the null hypothesis, follow up with Tukey-Kramer tests to identify which pairs are statistically different.
+
+4. Install the `palmerpenguins` package using `install.packages("palmerpenguins")`, then load it with `library(palmerpenguins)` and access the data with `data(penguins)`. Examine whether penguin physical characteristics (`bill_length_mm`, `bill_depth_mm`, `flipper_length_mm`, `body_mass_g`) differ across the three penguin `species`. Start by creating boxplots to visualize the data, then run one-way ANOVAs for each measurement. For any significant results, conduct Tukey-Kramer post-hoc tests to determine which species pairs differ significantly.
+
+5. Use the `datasets:mtcars` data to see if size of an engine as measured in number of cylinders ($cyl$) influences fuel efficiency ($mpg$), power ($hp$), or speed ($qsec$).  Important: Make sure you force R to treat the cylinder variable as a factor, not a number! Create boxplots and analyze each of the performance characteristics with one-way ANOVA, and if any of your ANOVAs indicate that you should reject the null hypothesis, follow up with Tukey-Kramer tests to identify which pairs are statistically different.
+
+6. Using `CPS1985`, run a two-way ANOVA examining wages by both gender and sector. Test for main effects and interactions. How do your results compare to the gender/occupation analysis from the chapter?
+
+Chi-Square:
+
+7. Using the `AER:CPS1985` dataset, test whether there's a relationship between gender and occupation. Create a cross-tabulation table and run a chi-square test. What does this tell you about occupational segregation in 1985?
+
+8. Create a two-way table examining the relationship between marital status and sector (manufacturing vs service) in the `CPS1985` data. Test for independence and interpret your results.
+
+
+

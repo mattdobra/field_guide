@@ -1,0 +1,379 @@
+# Categorical Independent Variables {#sec-categoricalIV}
+
+Thus far, we have only considered models in which the independent variables are numeric. Now, we expand our understanding of OLS regression to include categorical independent variables as well. This chapter will discuss the use of dummy (indicator) variables and interaction effects in regression modelling.
+
+Let's begin by loading in the packages we will be using, as well as the data that will appear later in this chapter:
+
+```{r}
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(openintro)
+library(stargazer)
+library(jtools)
+
+
+data(cars04)
+
+# Setup Colors!
+colorlight <- "lightsteelblue"
+colordark <- "steelblue"
+
+colorlight2 <- "indianred1"
+colordark2 <- "indianred4"
+```
+
+
+## Dummy Variables
+
+let's start by bringing back the `cars04` data and recreating the origin variable we originally created back in @sec-wrangling:
+
+```{r}
+domestic_cars <- c("GMC",
+                   "Chevrolet", 
+                   "Ford", 
+                   "Saturn", 
+                   "Dodge", 
+                   "Jeep", 
+                   "Pontiac", 
+                   "Buick",
+                   "Chrysler",
+                   "Oldsmobile", 
+                   "Lincoln",
+                   "Cadillac", 
+                   "Mercury", 
+                   "Hummer")
+
+cars04 <- cars04 |> 
+  mutate(make = word(name, 1)) |> 
+  mutate(make = case_when(
+    make == "Chrvsler" ~ "Chrysler",
+    make == "CMC" ~ "GMC",
+    make == "Mazda3" ~ "Mazda",
+    make == "Mazda6" ~ "Mazda",
+    make == "Land" ~ "Land Rover",
+    TRUE ~ make
+  )) |> 
+  mutate(origin = if_else(make %in% domestic_cars, "Domestic", "Foreign"))
+
+```
+
+This `origin` variable we just created is *categorical* and has two possible values, or *levels* in the data: Domestic and Foreign.  
+
+```{r}
+summary(cars04$origin)
+```
+
+We can see that R considers this to be a **character** variable:
+
+```{r echo = TRUE}
+class(cars04$origin)
+```
+For most regression purposes, we'll want to convert this to a factor variable. What's the difference? Character variables are just text that R stores but doesn't really give any meaning to. If two observations have the same value for the the character variable, R just ignores the fact that they are identical.  Changing a variable from a character to a factor variables is like telling R "hey, these text values represent categories that I want you to treat as groups for statistical analysis." In other words, if two or more observations have the same value for this variable, they can be treated as part of the same group.
+
+```{r}
+cars04$origin <- as.factor(cars04$origin) 
+class(cars04$origin)
+```
+When should you use factors vs. characters? Honestly, if you're doing any kind of statistical analysis with categorical data, just make it a factor. R will handle factors better in most statistical functions, and it'll save you headaches down the road. The main time you'd keep something as character is when it's truly just a text label that you're never going to analyze--but even then, converting to factor rarely hurts anything.
+
+The factor conversion becomes especially important when you have variables that look like numbers but represent categories. For instance, if you had a `year` variable but wanted to treat each year as a separate category rather than a continuous time trend, you'd convert it to a factor. But I digress; for now, just remember that if you plan to use a categorical variable in statistical analysis, make it a factor.
+
+So, if we are estimating a regression, we need to have numerical variables. How does all this translate into having numerical variables? This is where **dummy variables** come in.  A dummy variable is simply a variable that takes on a value of 1 if an observation is of a specific category, and 0 otherwise. 
+
+Let's transform this into a set of dummy variables.  Because our factor variable has 2 possible levels, we can make 2 different dummy variables out of it: a domestic dummy and a foreign dummy.  
+
+```{r}
+cars04$domestic <- ifelse(cars04$origin == "Domestic", 1, 0)
+cars04$foreign <- ifelse(cars04$origin == "Foreign", 1, 0)
+```
+
+It's always a good idea to make sure your dummies turned out right:
+
+```{r}
+cars04 |> 
+  count(origin, foreign, domestic) |> 
+  knitr::kable()
+```
+
+What if we wanted to look at a categorical variable with more than 2 levels, like occupation?
+
+```{r}
+cars04 |>
+  select(make) |>
+  distinct() |>
+  arrange(make) |> 
+  knitr::kable()
+```
+
+This categorical variable has 38 levels, and I really don't want to spend my day making 38 different dummies. Luckily, in R you do not need to create dummy variables; if you run a regression with a factor variable it will do all of this in the background.  However, we will use these created dummies a few times in this chapter to see the intuition of what is going on here, and in the real world, often data is already coded in dummy format so it is useful to understand how it works. 
+
+As an additional note, if a categorical variable has $L$ levels, you would only need $L-1$ dummy variables.  We will discuss why as we go along, but the reason lies in the multicollinearity assumption we saw in Chapter @ref-assumptions.  
+
+## Anything ANOVA Does, Regression Does Better
+
+In some circles, those are fighting words!
+
+In Chapter @sec-inferstats, we looked at some methods of inferential statistics with categorical independent variables, particularly the 2-sample t-test and ANOVA.  Recall, the two-sample t-test is when you have a numeric dependent variable that you think varies based on the value of a categorical independent variable that has two possible levels.  An ANOVA is the same thing, but for categorical independent variables with 2 or more levels or multiple categorical variables.
+
+Let's use these two techniques to look at the engine size differences between domestic and foreign cars in the `cars04` data:
+
+```{r}
+t.test(eng_size ~ foreign, data = cars04)
+```
+
+```{r}
+summary(aov(eng_size ~ foreign, data = cars04))
+```
+
+Fun aside: there is a variant of the ANOVA called the **Welch One-Way Test** that actually gets the same results as a 2-sample t-test:
+
+```{r}
+oneway.test(eng_size ~ foreign, data = cars04)
+```
+
+They may look slightly different, because the t-test relies on the t-distribution and the one-way test relies on the F-distribution, except the F-distribution is just the t-distribution squared and the p-values are the same so really it is just the same thing. But I digress... 
+
+...but I guess if we are talking about how two different looking things are in fact the same thing, we should talk about ANOVA and Regression with dummy variables. We can use regression to obtain the exact same results as we did with the ANOVA above: 
+
+\begin{equation}
+eng\_size_{i} = \alpha + \beta foreign_i 
+\end{equation}
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+reg_cars1 <- lm(eng_size ~ foreign, data = cars04)
+stargazer(reg_cars1, type = "html")
+```
+It may be presented slighly differently, but this result is in fact **identical** to the ANOVA we saw before.
+
+```{r}
+summary(aov(eng_size ~ foreign, data = cars04))
+```
+
+The F-value is identical, and if you examine the ANOVA table from the regression model, you see even more identical looking stuff. The only difference is rounding:
+
+```{r}
+anova(reg_cars1)
+```
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| out-width: 50%
+#| fig-alt: 'Scooby Doo meme. Fred pulls the mask off a villain labeled "ANOVA" to reveal "Dummy Variable Regression" underneath.'
+
+knitr::include_graphics("images/anovadummyreg.jpg")
+
+```
+
+So with that aside out of the way, let's return to the actual regression results:
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+stargazer(reg_cars1, type = "html")
+```
+
+What do these estimated coefficients mean?  First, two definitions.  The *included group* is a group that we have created a dummy variable for and included in the model. In this regression `foreign` is the included group. The *omitted group* is the group for which there is no dummy in the model. Here, `domestic` is the omitted group. For any categorical variable, you must have **precisely one** omitted group, for reasons that should become clear shortly.
+
+The constant term is the average of the *omitted* group: the domestic engine size is 3.643 Liters.  The $\hat{\beta}$ on `foreign` is the difference between foreign and domestic cars.  This result tells us that on average, foreign engines are 0.68 Liters *smaller* than those of the domestic cars in the data, and that this difference in size is statistically significant at the $p<0.01$ confidence level  
+
+We can visualize this result with a boxplot:
+
+```{r}
+cars04 |> 
+  ggplot(aes(fill = origin, x = origin, y = eng_size)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c(colordark, colorlight)) +
+  theme_minimal() +
+  guides(fill = "none") +
+  labs(title = "Engine Size by Car Origin",
+       y = "Engine Size",
+       fill = "",
+       x = "Origin")
+
+```
+
+The regression results are telling us that the differences between these groups is in fact significant.  
+
+The regression results stored in the object reg_cars1 were obtained using the dummy variables we created above.  We don't actually need to create dummy variables if the data are stored as factors.  Estimating a regression using the factor variable `origin` gives the same results.
+
+```{r}
+#| message: false
+#| warning: false
+#| results: asis
+
+reg_cars2 <- lm(eng_size ~ origin, data = cars04)
+stargazer(reg_cars1, reg_cars2, type = "html")
+```
+
+What would have happened if we estimated a regression with the domestic dummies instead?
+
+```{r}
+#| message: false
+#| warning: false
+#| results: asis
+
+reg_cars3 <- lm(eng_size ~ domestic, data = cars04)
+stargazer(reg_cars1, reg_cars2, reg_cars3, type = "html")
+```
+
+As before, the constant tells us the mean of the omitted group...only this time it is foreign cars, not domestic ones!  The $\hat{\beta}$ has the same interpretation as before; it is the difference between foreign and domestic cars.  It should not be a surprise that it is simply the negative inverse of the foreign dummy from `reg_cars1`!
+
+If you wanted to generate analogous results using foreign as the omitted group while using the factor variable origin, it's fairly simple using the `relevel()` function:
+
+```{r}
+#| message: false
+#| warning: false
+#| results: asis
+
+reg_cars4 <- lm(eng_size ~ relevel(origin, "Foreign"), data = cars04)
+stargazer(reg_cars1, reg_cars2, reg_cars3, reg_cars4, type = "html")
+```
+
+The output is a pretty ugly given the way it spit the whole `relevel(origin, "Foreign")Domestic` thing into our table, but columns 3 and 4 are clearly the same results.
+
+Thus far, we have excluded either the `domestic` or the `foreign` dummy.  Why not simply estimate a regression with both dummies in it?
+
+```{r}
+#| message: false
+#| warning: false
+#| results: asis
+
+reg_cars5 <- lm(eng_size ~ domestic + foreign, data = cars04)
+stargazer(reg_cars5, type = "html")
+```
+
+
+R won't allow it...we get the exact same thing as `reg_cars3`:
+
+```{r}
+#| message: false
+#| warning: false
+#| results: asis
+
+stargazer(reg_cars3, reg_cars5, type = "html")
+```
+
+But why not?  Recall the discussion from Chapter @sec-assumptions regarding **multicollinearity**; we cannot have a variable that is a linear combination of other variables. This is often refered to as the **dummy variable trap**.
+
+```{r}
+#| fig-align: center
+#| echo: false
+#| out-width: 50%
+#| fig-alt: "Admiral Akbar meme. It's a Dummy Variable Trap!" 
+
+knitr::include_graphics("images/trap.jpg")
+```
+
+What would happen if you added the domestic dummy to the foreign dummy?
+
+```{r}
+cars04$tempvar <- cars04$domestic + cars04$foreign
+cars04 |> 
+  select(domestic, foreign, tempvar, make) |> 
+  distinct() |> 
+  slice(1:10) |> 
+  knitr::kable()
+```
+
+It seems that you will get a column of 1s, and a column of 1s will be collinear with the variable that is added to the regression to calculate the constant term.  If you *really* wanted, you could run this regression with no constant term by adding a `- 1` to your `lm` equation:
+
+```{r}
+#| message: false
+#| warning: false
+#| results: asis
+
+reg_cars6 <- lm(eng_size ~ foreign + domestic - 1, data = cars04)
+stargazer(reg_cars6, type = "html")
+```
+
+But there is really no point in doing so.  You don't get any added information, and if your research question is about the difference between the domestic and foreign cars, this regression doesn't tell you that.  You know that $\hat{\beta_1} =$ `r round(coef(reg_cars6)[1], 1)`and $\hat{\beta_2}=$ r round(coef(reg_cars6)[2], 1) are significantly different from zero, but you don't know if the difference between $\hat{\beta_1}$ and $\hat{\beta_2}$ is significantly different, which is what you are trying to figure out!
+
+```{r}
+#| echo: false
+
+cars04$tempvar <- NULL
+```
+
+So far we've worked with a factor variable that has 2 levels—what if we have a factor with more than 2 levels? Let's create a body style variable from the logical variables in our dataset. The `cars04` data has separate `TRUE`/`FALSE` variables for `sports_car`, `suv`, `wagon`, `minivan`, and `pickup.` Any car that isn't one of these types is a sedan. We can combine these into a single categorical variable:
+
+```{r}
+cars04 <- cars04 |> 
+  mutate(body_style = case_when(
+    sports_car == TRUE ~ "Sports Car",
+    suv == TRUE ~ "SUV", 
+    wagon == TRUE ~ "Wagon",
+    minivan == TRUE ~ "Minivan",
+    pickup == TRUE ~ "Pickup",
+    TRUE ~ "Sedan")) |> 
+  mutate(body_style = as.factor(body_style))
+```
+
+Let's take a look at what we created:
+
+```{r}
+cars04 |> 
+  count(body_style) |> 
+  knitr::kable()
+```
+
+
+
+## Stuff for later
+
+Once we hit interactions.  Show them this and remind them of the chow test in @sec-basicreg
+
+```{r}
+domestic_cars <- c("GMC",
+                   "Chevrolet", 
+                   "Ford", 
+                   "Saturn", 
+                   "Dodge", 
+                   "Jeep", 
+                   "Pontiac", 
+                   "Buick",
+                   "Chrysler",
+                   "Oldsmobile", 
+                   "Lincoln",
+                   "Cadillac", 
+                   "Mercury", 
+                   "Hummer")
+
+cars04 <- cars04 |> 
+  mutate(make = word(name, 1)) |> 
+  mutate(make = case_when(
+    make == "Chrvsler" ~ "Chrysler",
+    make == "CMC" ~ "GMC",
+    make == "Mazda3" ~ "Mazda",
+    make == "Mazda6" ~ "Mazda",
+    make == "Land" ~ "Land Rover",
+    TRUE ~ make
+  )) |> 
+  mutate(origin = if_else(make %in% domestic_cars, "Domestic", "Foreign"))
+
+# Run separate regressions for each group
+domestic_reg <- lm(horsepwr ~ eng_size, data = cars04[cars04$origin == "Domestic",])
+foreign_reg <- lm(horsepwr ~ eng_size, data = cars04[cars04$origin == "Foreign",])
+pooled_reg <- lm(horsepwr ~ eng_size, data = cars04)
+
+interaction_reg <- lm(horsepwr ~ eng_size * origin, data = cars04)
+
+```
+
+```{r}
+#| warning: false
+#| message: false
+#| results: asis
+
+stargazer(pooled_reg, domestic_reg, foreign_reg, interaction_reg, type = "text")
+```
+
+

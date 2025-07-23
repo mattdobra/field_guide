@@ -1,0 +1,3 @@
+# Categorical Dependent Variables {#sec-categoricalDV}
+
+Text
